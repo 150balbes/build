@@ -112,7 +112,7 @@ prepare_boot_configuration()
 {
 	if [[ $BOOT_SCENARIO == "blobless" ]]; then
 
-		UBOOT_TARGET_MAP="BL31=bl31.bin idbloader.img u-boot.itb;;idbloader.img u-boot.itb"
+		UBOOT_TARGET_MAP="BL31=bl31.bin u-boot-rockchip.bin;;u-boot-rockchip.bin"
 		ATFSOURCE='https://github.com/ARM-software/arm-trusted-firmware'
 		ATF_COMPILER='aarch64-linux-gnu-'
 		ATFDIR='arm-trusted-firmware'
@@ -184,10 +184,9 @@ write_uboot_platform()
 
 		dd if=$1/rksd_loader.img of=$2 seek=64 conv=notrunc status=none >/dev/null 2>&1
 
-	elif [[ -f $1/u-boot.itb ]]; then # $BOOT_SCENARIO == "blobless" || $BOOT_SCENARIO == "tpl-spl-blob"
+	elif [[ -f $1/u-boot-rockchip.bin ]]; then # $BOOT_SCENARIO == "blobless" || $BOOT_SCENARIO == "tpl-spl-blob"
 
-		dd if=$1/idbloader.img of=$2 seek=64 conv=notrunc status=none >/dev/null 2>&1
-		dd if=$1/u-boot.itb of=$2 seek=16384 conv=notrunc status=none >/dev/null 2>&1
+		dd if=$1/u-boot-rockchip.bin of=$2 seek=64 conv=notrunc status=none >/dev/null 2>&1
 
 	elif [[ -f $1/uboot.img ]]; then # $BOOT_SCENARIO == "only-blobs"
 
