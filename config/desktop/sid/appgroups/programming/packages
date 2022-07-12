@@ -2,3 +2,5 @@ build-essential
 clang
 meld
 arduino
+geany
+gnome-builder
