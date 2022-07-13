@@ -1,5 +1,6 @@
 # install lightdm greeter
-cp -R "${SRC}"/packages/blobs/desktop/lightdm "${destination}"/etc/armbian
+mkdir -p "${destination}"/etc/riscv
+cp -R "${SRC}"/packages/blobs/desktop/lightdm "${destination}"/etc/riscv
 
 # install default desktop settings
 mkdir -p "${destination}"/etc/skel
