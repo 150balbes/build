@@ -1,4 +1,5 @@
 # install lightdm greeter
+mkdir -p "${destination}"/etc/riscv
 cp -R "${SRC}"/packages/blobs/desktop/lightdm "${destination}"/etc/armbian
 
 # install default desktop settings
