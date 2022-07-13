@@ -88,7 +88,7 @@
         "default_icon": "cinnamon-symbolic",
         "dependency": "menu-custom",
         "indent": true,
-        "value": "/usr/share/pixmaps/armbian/armbian.png"
+        "value": "/usr/share/pixmaps/riscv/riscv-chip-logo.png"
     },
     "menu-icon-size": {
         "type": "spinbutton",
