@@ -1,5 +1,5 @@
 # overwrite stock lightdm greeter configuration
-if [ -d /etc/armbian/lightdm ]; then cp -R /etc/armbian/lightdm /etc/; fi
+if [ -d /etc/riscv/lightdm ]; then cp -R /etc/riscv/lightdm /etc/; fi
 
 # disable Pulseaudio timer scheduling which does not work with sndhdmi driver
 if [ -f /etc/pulse/default.pa ]; then sed "s/load-module module-udev-detect$/& tsched=0/g" -i /etc/pulse/default.pa; fi
@@ -59,7 +59,7 @@ secondary-click-time=1.2
 
 [org/mate/desktop/background]
 picture-options='zoom'
-picture-uri='file:///usr/share/backgrounds/armbian/armbian03-Dre0x-Minum-dark-3840x2160.jpg'
+picture-uri='file:///usr/share/backgrounds/riscv/Riscv-0-logo.jpg'
 primary-color='#456789'
 secondary-color='#FFFFFF'
 
@@ -82,7 +82,7 @@ autorun-never=false
 
 [org/mate/desktop/screensaver]
 picture-options='zoom'
-picture-uri='file:///usr/share/backgrounds/armbian-lightdm/armbian03-Dre0x-Minum-dark-3840x2160'
+picture-uri='file:///usr/share/backgrounds/lightdm/Riscv-0-lightdm.jpg'
 primary-color='#456789'
 secondary-color='#FFFFFF'
 
