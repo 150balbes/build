@@ -24,7 +24,6 @@ doc-base
 dunst
 evince
 evince-common
-feh
 fontconfig
 fontconfig-config
 fonts-arphic-ukai
@@ -90,18 +89,11 @@ libxcb-cursor0
 libxcursor1
 lightdm
 lightdm-gtk-greeter
-lightdm-gtk-greeter-settings
 lightdm-settings
 ltpanel
 lxappearance
 memo
 mousetweaks
-network-manager-l2tp
-network-manager-openconnect
-network-manager-openvpn-gnome
-network-manager-pptp
-network-manager-vpnc
-nitrogen
 numix-gtk-theme
 openprinting-ppds
 p7zip-full
@@ -110,6 +102,7 @@ pasystray
 pavucontrol
 pavucontrol-qt
 pavumeter
+plank
 policykit-1
 printer-driver-all
 profile-sync-daemon
@@ -128,7 +121,6 @@ synaptic
 system-config-printer
 system-config-printer-common
 terminator
-thunar
 totem
 totem-common
 totem-plugins
@@ -160,9 +152,6 @@ xorg-docs-core
 xscreensaver
 xserver-xorg
 xserver-xorg-video-fbdev
-xterm
-xtermcontrol
-xtermset
 xtitle
 xttitle
 xwallpaper
