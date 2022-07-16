@@ -114,7 +114,6 @@ spice-vdagent
 system-config-printer
 system-config-printer-common
 terminator
-thunar
 tree
 ubuntu-drivers-common
 update-inetd
