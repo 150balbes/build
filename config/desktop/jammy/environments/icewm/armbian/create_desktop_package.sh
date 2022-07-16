@@ -4,6 +4,7 @@ cp -R "${SRC}"/packages/blobs/desktop/lightdm "${destination}"/etc/riscv
 
 # install default desktop settings
 mkdir -p "${destination}"/etc/skel
+chmod +x "${SRC}"/packages/blobs/desktop/skel/.icewm/startup
 cp -R "${SRC}"/packages/blobs/desktop/skel/. "${destination}"/etc/skel
 
 # install logo for login screen

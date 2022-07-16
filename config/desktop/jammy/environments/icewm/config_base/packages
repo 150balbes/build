@@ -114,7 +114,9 @@ samba
 slick-greeter
 smbclient
 snap
+snapd
 software-properties-gtk
+spacefm
 speech-dispatcher
 spice-vdagent
 synaptic
@@ -149,6 +151,7 @@ xfonts-utils
 xinit
 xorg-docs
 xorg-docs-core
+xpdf
 xscreensaver
 xserver-xorg
 xserver-xorg-video-fbdev
