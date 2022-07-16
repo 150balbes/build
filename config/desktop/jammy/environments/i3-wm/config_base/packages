@@ -122,7 +122,6 @@ spice-vdagent
 system-config-printer
 system-config-printer-common
 terminator
-thunar
 totem
 totem-common
 totem-plugins
