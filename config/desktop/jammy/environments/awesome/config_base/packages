@@ -45,7 +45,6 @@ fonts-symbola
 fonts-ubuntu-console
 foomatic-db-compressed-ppds
 ghostscript-x
-gnome-bluetooth
 gnome-font-viewer
 gist
 gromit
@@ -87,8 +86,6 @@ lightdm
 lightdm-gtk-greeter
 lightdm-settings
 mousetweaks
-network-manager-openvpn-gnome
-network-manager-vpnc
 nitrogen
 numix-gtk-theme
 openprinting-ppds
