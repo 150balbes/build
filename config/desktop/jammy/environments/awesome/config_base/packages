@@ -4,7 +4,6 @@ arandr
 awesome
 awesome-doc
 awesome-extra
-libfontawesomefx-java
 blueman
 bluez
 bluez-cups
@@ -84,7 +83,9 @@ libxapp1
 libxcursor1
 lightdm
 lightdm-gtk-greeter
+lightdm-gtk-greeter-settings
 lightdm-settings
+lua5.4
 mousetweaks
 nitrogen
 numix-gtk-theme
@@ -135,6 +136,10 @@ xfonts-base
 xfonts-encodings
 xfonts-scalable
 xfonts-utils
+xorg-docs-core
+xmobar
 xscreensaver
+xserver-xorg
 xserver-xorg-video-fbdev
 xwallpaper
+xorg
