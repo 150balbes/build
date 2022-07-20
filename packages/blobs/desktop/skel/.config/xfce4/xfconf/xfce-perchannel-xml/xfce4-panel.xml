@@ -11,12 +11,24 @@
       <property name="size" type="uint" value="30"/>
       <property name="plugin-ids" type="array">
         <value type="int" value="1"/>
+        <value type="int" value="12"/>
         <value type="int" value="3"/>
         <value type="int" value="15"/>
+        <value type="int" value="9"/>
+        <value type="int" value="19"/>
+        <value type="int" value="13"/>
+        <value type="int" value="7"/>
+        <value type="int" value="16"/>
+        <value type="int" value="10"/>
+        <value type="int" value="14"/>
         <value type="int" value="4"/>
+        <value type="int" value="20"/>
         <value type="int" value="5"/>
         <value type="int" value="6"/>
+        <value type="int" value="18"/>
         <value type="int" value="2"/>
+        <value type="int" value="17"/>
+        <value type="int" value="11"/>
       </property>
       <property name="leave-opacity" type="uint" value="100"/>
     </property>
@@ -54,6 +66,61 @@
         <value type="string" value="xfce4-power-manager"/>
         <value type="string" value="pasystray"/>
       </property>
+      <property name="known-items" type="array">
+        <value type="string" value="TelegramDesktop"/>
+        <value type="string" value="vlc"/>
+        <value type="string" value="nm-applet"/>
+        <value type="string" value="pasystray"/>
+      </property>
+      <property name="known-legacy-items" type="array">
+        <value type="string" value="xfce4-power-manager"/>
+      </property>
     </property>
+    <property name="plugin-7" type="string" value="systemload"/>
+    <property name="plugin-9" type="string" value="weather">
+      <property name="location" type="empty">
+        <property name="name" type="string" value="Elizabethton, Carter County"/>
+        <property name="latitude" type="string" value="36.348720"/>
+        <property name="longitude" type="string" value="-82.210688"/>
+      </property>
+      <property name="msl" type="int" value="467"/>
+      <property name="timezone" type="string" value="America/New_York"/>
+      <property name="offset" type="string" value="-04:00"/>
+      <property name="cache-max-age" type="int" value="172800"/>
+      <property name="power-saving" type="bool" value="true"/>
+      <property name="units" type="empty">
+        <property name="temperature" type="int" value="1"/>
+        <property name="pressure" type="int" value="2"/>
+        <property name="windspeed" type="int" value="1"/>
+        <property name="precipitation" type="int" value="1"/>
+        <property name="altitude" type="int" value="1"/>
+        <property name="apparent-temperature" type="int" value="0"/>
+      </property>
+      <property name="round" type="bool" value="true"/>
+      <property name="single-row" type="bool" value="true"/>
+      <property name="tooltip-style" type="int" value="1"/>
+      <property name="forecast" type="empty">
+        <property name="layout" type="int" value="1"/>
+        <property name="days" type="int" value="5"/>
+      </property>
+      <property name="theme-dir" type="string" value="/usr/share/xfce4/weather/icons/liquid"/>
+      <property name="scrollbox" type="empty">
+        <property name="show" type="bool" value="true"/>
+        <property name="animate" type="bool" value="true"/>
+        <property name="lines" type="int" value="1"/>
+        <property name="color" type="string" value="rgba(0,0,0,0)"/>
+        <property name="use-color" type="bool" value="false"/>
+      </property>
+    </property>
+    <property name="plugin-10" type="string" value="xkb"/>
+    <property name="plugin-11" type="string" value="thunar-tpa"/>
+    <property name="plugin-12" type="string" value="showdesktop"/>
+    <property name="plugin-13" type="string" value="netload"/>
+    <property name="plugin-14" type="string" value="separator"/>
+    <property name="plugin-16" type="string" value="separator"/>
+    <property name="plugin-17" type="string" value="separator"/>
+    <property name="plugin-18" type="string" value="separator"/>
+    <property name="plugin-19" type="string" value="separator"/>
+    <property name="plugin-20" type="string" value="separator"/>
   </property>
 </channel>
