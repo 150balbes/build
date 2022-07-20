@@ -8,6 +8,7 @@ dbus-x11
 dictionaries-common
 dmz-cursor-theme
 eject
+eog
 evolution-data-server
 evolution-data-server-common
 fonts-freefont-ttf
@@ -122,6 +123,7 @@ python3-xkit
 python3-yaml
 slick-greeter
 snap
+snapd
 software-properties-gtk
 spice-vdagent
 system-config-printer

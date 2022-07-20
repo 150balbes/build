@@ -15,6 +15,7 @@ cups-filters
 dbus-x11
 dictionaries-common
 doc-base
+eom
 evince
 evince-common
 fontconfig
@@ -94,7 +95,6 @@ mate-applet-appmenu
 mate-applet-brisk-menu
 mate-applets
 mate-applets-common
-mate-backgrounds
 mate-calc
 mate-calc-common
 mate-common
@@ -103,12 +103,10 @@ mate-control-center-common
 mate-core
 mate-desktop
 mate-desktop-common
-mate-desktop-environment
 mate-desktop-environment-core
 mate-desktop-environment-extra
 mate-desktop-environment-extras
 mate-dock-applet
-mate-equake-applet
 mate-hud
 mate-icon-theme
 mate-indicator-applet
@@ -117,6 +115,8 @@ mate-media
 mate-media-common
 mate-menu
 mate-menus
+mate-netbook
+mate-netbook-common
 mate-notification-daemon
 mate-notification-daemon-common
 mate-panel
@@ -174,6 +174,7 @@ samba
 slick-greeter
 smbclient
 snap
+snapd
 software-properties-gtk
 spice-vdagent
 system-config-printer

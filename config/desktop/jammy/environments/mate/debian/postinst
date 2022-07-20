@@ -13,7 +13,7 @@ install -Dv /dev/null $profile
 
 # gather dconf settings
 # deconf dump org/nemo/ > nemo_backup
-# deconf dump org/mate/ > cinnamon_desktop_backup
+# deconf dump org/mate/ > mate_desktop_backup
 
 echo "[org/nemo/list-view]
 default-visible-columns=['name', 'size', 'type', 'date_modified', 'owner', 'permissions']
@@ -57,11 +57,36 @@ dwell-time=1.2
 secondary-click-enabled=false
 secondary-click-time=1.2
 
+[org/mate/desktop/accessibility/keyboard]
+bouncekeys-beep-reject=true
+bouncekeys-delay=300
+bouncekeys-enable=false
+enable=false
+feature-state-change-beep=false
+mousekeys-accel-time=1200
+mousekeys-enable=false
+mousekeys-init-delay=160
+mousekeys-max-speed=750
+slowkeys-beep-accept=true
+slowkeys-beep-press=true
+slowkeys-beep-reject=false
+slowkeys-delay=300
+slowkeys-enable=false
+stickykeys-enable=false
+stickykeys-latch-to-lock=true
+stickykeys-modifier-beep=true
+stickykeys-two-key-off=true
+timeout=120
+timeout-enable=false
+togglekeys-enable=false
+
 [org/mate/desktop/background]
-picture-options='zoom'
+color-shading-type='vertical-gradient'
+picture-filename='/usr/share/backgrounds/riscv/Riscv-2-logo.jpg'
+picture-options='stretched'
 picture-uri='file:///usr/share/backgrounds/riscv/Riscv-0-logo.jpg'
-primary-color='#456789'
-secondary-color='#FFFFFF'
+primary-color='rgb(69,103,137)'
+secondary-color='rgb(255,255,255)'
 
 [org/mate/desktop/applications/terminal]
 exec='/usr/bin/terminator'
@@ -72,8 +97,8 @@ exec='/usr/bin/terminator'
 [org/mate/desktop/interface]
 clock-show-date=true
 cursor-theme='whiteglass'
-gtk-theme='Numix'
-icon-theme='Numix'
+gtk-theme='Blue-Submarine'
+icon-theme='mate'
 scaling-factor=uint32 0
 toolkit-accessibility=false
 
@@ -89,6 +114,20 @@ secondary-color='#FFFFFF'
 [org/mate/desktop/wm/preferences]
 num-workspaces=2
 theme='Numix'
+
+[org/mate/marco/general]
+theme='Blue-Submarine'
+
+[org/mate/panel/general]
+object-id-list=['briskmenu', 'firefox', 'notification-area', 'indicatorappletcomplete', 'show-desktop', 'window-list', 'workspace-switcher', 'trashapplet']
+toplevel-id-list=['top', 'bottom']
+
+[org/mate/panel/objects/briskmenu]
+applet-iid='BriskMenuFactory::BriskMenu'
+locked=true
+object-type='applet'
+position=0
+toplevel-id='top'
 
 [org/mate/settings-daemon/peripherals/touchpad]
 disable-while-typing=true

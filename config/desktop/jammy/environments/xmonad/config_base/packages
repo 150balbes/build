@@ -105,6 +105,8 @@ rofi
 samba
 slick-greeter
 smbclient
+snap
+snapd
 software-properties-gtk
 spice-vdagent
 system-config-printer
