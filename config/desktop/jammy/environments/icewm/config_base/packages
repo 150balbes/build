@@ -95,6 +95,7 @@ ltpanel
 lxappearance
 memo
 mousetweaks
+notification-daemon
 numix-gtk-theme
 openprinting-ppds
 p7zip-full
@@ -140,6 +141,7 @@ xapps-common
 xarchiver
 xbacklight
 xcb
+xcompmgr
 xcursor-themes
 xdg-user-dirs
 xdg-user-dirs-gtk
