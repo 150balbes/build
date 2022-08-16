@@ -1,3 +1,4 @@
+gkrellkam
 gkrellm
 gkrellm-bfm
 gkrellm-cpufreq
@@ -5,20 +6,21 @@ gkrellm-gkrellmpc
 gkrellm-hdplop
 gkrellm-leds
 gkrellm-mailwatch
-gkrellm-radio
 gkrellm-reminder
-gkrellm-thinkbat
+gkrellm-tz 
 gkrellm-volume
-gkrellm-kbd
-gkrellmmapcpusd
-gkerllmoom
-gkrelmwireless
-gkrellshoot
-gkrellmtop
-gkrellmtopd
+gkrellm-xkb
+gkrellmapcupsd 
+gkrellmd
+gkrellmitime
+gkrellmoon
+gkrellmwireless
+gkrellshoots
+gkrelltop
+gkrelltopd
 gkrelluim
-gkrellmweather
-gkrellmxmms2
+gkrellweather
+gkrellxmms2
 hardinfo
 xosview
 
