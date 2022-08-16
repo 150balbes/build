@@ -36,7 +36,7 @@ geometry='800x550+550+244'
 maximized=false
 sidebar-bookmark-breakpoint=5
 
-[org/mate]
+[org/mate/]
 desklet-decorations=0
 desktop-effects=false
 enabled-applets=['panel1:left:0:menu@cinnamon.org:0', 'panel1:left:1:show-desktop@cinnamon.org:1', 'panel1:left:2:grouped-window-list@cinnamon.org:2', 'panel1:right:0:systray@cinnamon.org:3', 'panel1:right:1:xapp-status@cinnamon.org:4', 'panel1:right:2:notifications@cinnamon.org:5', 'panel1:right:3:printers@cinnamon.org:6', 'panel1:right:4:removable-drives@cinnamon.org:7', 'panel1:right:5:keyboard@cinnamon.org:8', 'panel1:right:6:favorites@cinnamon.org:9', 'panel1:right:7:network@cinnamon.org:10', 'panel1:right:8:sound@cinnamon.org:11', 'panel1:right:9:power@cinnamon.org:12', 'panel1:right:10:calendar@cinnamon.org:13']
@@ -45,6 +45,13 @@ next-applet-id=14
 panels-height=['1:33']
 panels-resizable=['1:true']
 startup-animation=false
+
+[org/mate/caja/window-state]
+geometry='800x550+157+176'
+maximized=false
+start-with-sidebar=true
+start-with-status-bar=true
+start-with-toolbar=true
 
 [org/mate/desktop/a11y/applications]
 screen-keyboard-enabled=false
@@ -80,6 +87,9 @@ timeout=120
 timeout-enable=false
 togglekeys-enable=false
 
+[org/mate/desktop/applications/terminal]
+exec='/usr/bin/terminator'
+
 [org/mate/desktop/background]
 color-shading-type='vertical-gradient'
 picture-filename='/usr/share/backgrounds/riscv/Riscv-2-logo.jpg'
@@ -87,9 +97,6 @@ picture-options='stretched'
 picture-uri='file:///usr/share/backgrounds/riscv/Riscv-0-logo.jpg'
 primary-color='rgb(69,103,137)'
 secondary-color='rgb(255,255,255)'
-
-[org/mate/desktop/applications/terminal]
-exec='/usr/bin/terminator'
 
 [org/mate/desktop/default-applications/terminal]
 exec='/usr/bin/terminator'
@@ -105,11 +112,17 @@ toolkit-accessibility=false
 [org/mate/desktop/media-handling]
 autorun-never=false
 
+[org/mate/desktop/peripherals/mouse]
+cursor-theme='mate'
+
 [org/mate/desktop/screensaver]
 picture-options='zoom'
 picture-uri='file:///usr/share/backgrounds/lightdm/Riscv-0-lightdm.jpg'
 primary-color='#456789'
 secondary-color='#FFFFFF'
+
+[org/mate/desktop/session]
+session-start=1660678677
 
 [org/mate/desktop/wm/preferences]
 num-workspaces=2
@@ -119,7 +132,7 @@ theme='Numix'
 theme='Blue-Submarine'
 
 [org/mate/panel/general]
-object-id-list=['briskmenu', 'firefox', 'notification-area', 'indicatorappletcomplete', 'show-desktop', 'window-list', 'workspace-switcher', 'trashapplet']
+object-id-list=['briskmenu', 'firefox', 'notification-area', 'indicatorappletcomplete', 'show-desktop', 'window-list', 'workspace-switcher', 'trashapplet', 'object-0', 'object-1', 'object-3', 'object-2', 'object-4', 'object-5', 'object-6', 'object-7', 'object-9', 'object-8', 'object-10', 'object-11', 'object-12', 'object-13', 'object-14', 'object-15', 'object-16']
 toplevel-id-list=['top', 'bottom']
 
 [org/mate/panel/objects/briskmenu]
@@ -128,6 +141,127 @@ locked=true
 object-type='applet'
 position=0
 toplevel-id='top'
+
+[org/mate/panel/objects/object-0]
+applet-iid='ClockAppletFactory::ClockApplet'
+object-type='applet'
+panel-right-stick=true
+position=217
+toplevel-id='top'
+
+[org/mate/panel/objects/object-0/prefs]
+custom-format=''
+format='24-hour'
+
+[org/mate/panel/objects/object-1]
+action-type='logout'
+object-type='action'
+panel-right-stick=true
+position=82
+toplevel-id='top'
+
+[org/mate/panel/objects/object-10]
+object-type='separator'
+panel-right-stick=true
+position=227
+toplevel-id='top'
+
+[org/mate/panel/objects/object-11]
+object-type='separator'
+panel-right-stick=true
+position=34
+toplevel-id='top'
+
+[org/mate/panel/objects/object-12]
+object-type='separator'
+panel-right-stick=false
+position=1652
+toplevel-id='top'
+
+[org/mate/panel/objects/object-13]
+object-type='separator'
+panel-right-stick=false
+position=1469
+toplevel-id='top'
+
+[org/mate/panel/objects/object-14]
+object-type='separator'
+panel-right-stick=false
+position=1417
+toplevel-id='top'
+
+[org/mate/panel/objects/object-15]
+object-type='separator'
+panel-right-stick=false
+position=1236
+toplevel-id='top'
+
+[org/mate/panel/objects/object-16]
+launcher-location='/usr/share/applications/dillo.desktop'
+object-type='launcher'
+panel-right-stick=false
+position=79
+toplevel-id='top'
+
+[org/mate/panel/objects/object-2]
+action-type='shutdown'
+object-type='action'
+panel-right-stick=true
+position=58
+toplevel-id='top'
+
+[org/mate/panel/objects/object-3]
+applet-iid='NetspeedAppletFactory::NetspeedApplet'
+object-type='applet'
+panel-right-stick=false
+position=1479
+toplevel-id='top'
+
+[org/mate/panel/objects/object-4]
+applet-iid='TrashAppletFactory::TrashApplet'
+object-type='applet'
+panel-right-stick=true
+position=24
+toplevel-id='top'
+
+[org/mate/panel/objects/object-5]
+applet-iid='GvcAppletFactory::GvcApplet'
+object-type='applet'
+panel-right-stick=true
+position=255
+toplevel-id='top'
+
+[org/mate/panel/objects/object-6]
+applet-iid='MateWeatherAppletFactory::MateWeatherApplet'
+object-type='applet'
+panel-right-stick=false
+position=1206
+toplevel-id='top'
+
+[org/mate/panel/objects/object-7]
+applet-iid='WnckletFactory::WorkspaceSwitcherApplet'
+object-type='applet'
+panel-right-stick=false
+position=1246
+toplevel-id='top'
+
+[org/mate/panel/objects/object-8]
+object-type='separator'
+panel-right-stick=true
+position=92
+toplevel-id='top'
+
+[org/mate/panel/objects/object-9]
+applet-iid='MultiLoadAppletFactory::MultiLoadApplet'
+object-type='applet'
+panel-right-stick=false
+position=1427
+toplevel-id='top'
+
+[org/mate/panel/toplevels/bottom]
+orientation='bottom'
+y=1055
+y-bottom=0
 
 [org/mate/settings-daemon/peripherals/touchpad]
 disable-while-typing=true
@@ -161,7 +295,7 @@ logout-enabled=false
 plug-enabled=false
 switch-enabled=false
 tile-enabled=false
-unplug-enabled=false" >> $keys
+unplug-enabled=false
 
 echo "user-db:user
 system-db:local" >> $profile
