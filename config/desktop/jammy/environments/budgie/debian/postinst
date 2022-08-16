@@ -57,7 +57,7 @@ monospace-font-name='Noto Mono 11'
 toolkit-accessibility=false
 
 [org/gnome/desktop/screensaver]
-picture-uri='file:///usr/share/backgrounds/armbian-lightdm/armbian03-Dre0x-Minum-dark-blurred-3840x2160.jpg'
+picture-uri='file:///usr/share/backgrounds/lightdm/Riscv-0-lightdm.jpg'
 
 [org/cinnamon/desktop/applications/terminal]
 exec='/usr/bin/terminator'
