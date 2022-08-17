@@ -295,7 +295,7 @@ logout-enabled=false
 plug-enabled=false
 switch-enabled=false
 tile-enabled=false
-unplug-enabled=false
+unplug-enabled=false" >> $keys
 
 echo "user-db:user
 system-db:local" >> $profile
