@@ -1,5 +1,6 @@
 audacious
 audacious-plugins
+audacious-plugins-data
 cheese
 mpv
 pithos
@@ -7,10 +8,11 @@ smplayer
 vlc
 vlc-bin
 vlc-data
-vlc-l10n
 vlc-plugin-access-extra
 vlc-plugin-base
 vlc-plugin-bittorrent
+vlc-plugin-fluidsynth
+vlc-plugin-jack
 vlc-plugin-notify
 vlc-plugin-qt
 vlc-plugin-samba
