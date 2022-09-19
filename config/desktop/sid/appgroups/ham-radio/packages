@@ -43,7 +43,6 @@ gpredict
 gqrx-sdr
 gr-dab
 gr-satellites
-gr-soapy
 grig
 hacktv 
 hamexam
@@ -71,11 +70,6 @@ qtel
 qtel-icons
 quisk
 rtl-433
-soapyosmo-common0.7
-soapyremote-server
-soapysdr-module-all
-soapysdr-tools
-soapysdr0.7-module-all
 soundmodem 
 splat 
 tk2

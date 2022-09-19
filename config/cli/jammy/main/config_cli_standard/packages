@@ -9,6 +9,7 @@ expect
 fbset
 flex
 gnupg2
+gpiod
 hping3
 html2text
 initramfs-tools
