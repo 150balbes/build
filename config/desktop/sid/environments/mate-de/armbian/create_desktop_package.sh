@@ -4,7 +4,7 @@ cp -R "${SRC}"/packages/blobs/desktop/lightdm "${destination}"/etc/riscv
 
 # install default desktop settings
 mkdir -p "${destination}"/etc/skel
-cp -R "${SRC}"/packages/blobs/desktop/skel/. "${destination}"/etc/skel
+cp -R "${SRC}"/packages/blobs/desktop/skel.all/. "${destination}"/etc/skel
 
 #install cinnamon desktop bar icons
 mkdir -p "${destination}"/usr/share/icons/riscv
