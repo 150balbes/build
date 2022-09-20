@@ -226,6 +226,36 @@ if ! ls "${SRC}"/userpatches/{config-default.conf,config-docker.conf,config-vagr
 
 	display_alert "Create example config file using template" "config-default.conf" "info"
 
+	# Create cli-debian config
+	if [[ ! -f "${SRC}"/userpatches/config-cli-debian.conf ]]; then
+		cp "${SRC}"/config/templates/config-cli-debian.conf "${SRC}"/userpatches/config-cli-debian.conf || exit 1
+	fi
+
+	# Create cli-ubuntu config
+	if [[ ! -f "${SRC}"/userpatches/config-cli-ubuntu.conf ]]; then
+		cp "${SRC}"/config/templates/config-cli-ubuntu.conf "${SRC}"/userpatches/config-cli-ubuntu.conf || exit 1
+	fi
+
+	# Create desktop-full-debian config
+	if [[ ! -f "${SRC}"/userpatches/config-desktop-full-debian.conf ]]; then
+		cp "${SRC}"/config/templates/config-desktop-full-debian.conf "${SRC}"/userpatches/config-desktop-full-debian.conf || exit 1
+	fi
+
+	# Create desktop-full-ubuntu config
+	if [[ ! -f "${SRC}"/userpatches/config-desktop-full-ubuntu.conf ]]; then
+		cp "${SRC}"/config/templates/config-desktop-full-ubuntu.conf "${SRC}"/userpatches/config-desktop-full-ubuntu.conf || exit 1
+	fi
+
+	# Create desktop-minimal-debian config
+	if [[ ! -f "${SRC}"/userpatches/config-desktop-minimal-debian.conf ]]; then
+		cp "${SRC}"/config/templates/config-desktop-minimal-debian.conf "${SRC}"/userpatches/config-desktop-minimal-debian.conf || exit 1
+	fi
+
+	# Create desktiop-minimal-ubuntu config
+	if [[ ! -f "${SRC}"/userpatches/config-desktop-minimal-ubuntu.conf ]]; then
+		cp "${SRC}"/config/templates/config-desktop-minimal-ubuntu.conf "${SRC}"/userpatches/config-desktop-minimal-ubuntu.conf || exit 1
+	fi
+
 	# Create example config
 	if [[ ! -f "${SRC}"/userpatches/config-example.conf ]]; then
 		cp "${SRC}"/config/templates/config-example.conf "${SRC}"/userpatches/config-example.conf || exit 1
