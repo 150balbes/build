@@ -15,14 +15,14 @@ In each directory representing a desktop environment, a desktop environment conf
 
 * `packages`  
   If present, the content of the file will be added to the list
-  of packages 'required' by the Armbian desktop package.
+  of packages 'required' by the RVbian desktop package.
 * `debian/postinst`  
   If present, the content of the file will be added to the `postinst`
-  script of the Armbian desktop package, which will be executed after
+  script of the RVbian desktop package, which will be executed after
   installing it.
-* `armbian/create_desktop_package.sh`  
+* `rvbian/create_desktop_package.sh`  
   If present the content of this script will be executed, by the build
-  script, just before actually creating the Armbian Desktop `.deb`
+  script, just before actually creating the RVbian Desktop `.deb`
   package.  
   Any variable recognized and function defined by the build script,
   at that point, can be used.
@@ -46,7 +46,7 @@ environment configuration or an appgroup, you can add :
   For example `custom/orangepipc`.  
   A Board (odroidc4, tinkerboard, bananapi, ...) specific directory
   where you can provide additional`packages`, `debian/postinst` and
-  `armbian/create_desktop_package.sh`. 
+  `rvbian/create_desktop_package.sh`. 
   The files, if present, will be parsed accordingly when building
   for that specific board, if the element (desktop environment,
   appgroup, ...) is selected.
@@ -57,14 +57,14 @@ Then in each appgroup, you can add :
   For example `custom/desktops/xfce`.  
   A desktop environment specific directory where you can provide
   additional `packages`, `debian/postinst` and
-  `armbian/create_desktop_package.sh`.  
+  `rvbian/create_desktop_package.sh`.  
   The files, if present, will be parsed accordingly if the appgroup
   AND that desktop environment are both selected during a build.
 * `custom/boards/${BOARD}/custom/desktops/${DESTKOP_ENVIRONMENT}/`  
   For example `custom/boards/tinkerboard/custom/desktops/kde`.  
   A Board AND desktop environment specific directory where you can
   provided additional `packages`, `debian/postinst` and
-  `armbian/create_desktop_package.sh`.  
+  `rvbian/create_desktop_package.sh`.  
   The files, if present, will be parsed accordingly if the appgroup,
   that specific board and that specific desktop environments are
   all selected during a build.
@@ -89,7 +89,7 @@ DE along with all its specific apps, widgets and the kitchen sink.
 * Open the `packages` file, add the list of packages for `apt`.
 
 Then select it in the configuration menu, or pass the following
-variables to `./compile.sh` :
+variables to `./build-img.sh` :
 
 ```bash
 BUILD_DESKTOP="yes" RELEASE="focal" DESKTOP_ENVIRONMENT="superduperde" DESKTOP_ENVIRONMENT_CONFIG_NAME="config_full"

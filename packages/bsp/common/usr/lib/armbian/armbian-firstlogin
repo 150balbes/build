@@ -406,24 +406,32 @@ if [[ -f /root/.not_logged_in_yet && -n $(tty) ]]; then
 			EOF
 
 			# select gnome session (has to be first or it breaks budgie/cinnamon desktop autologin and user-session)
-			[[ -x $(command -v gnome-session) ]] && sed -i "s/user-session.*/user-session=ubuntu/" /etc/lightdm/lightdm.conf.d/11-armbian.conf
-			[[ -x $(command -v gnome-session) ]] && sed -i "s/user-session.*/user-session=ubuntu/" /etc/lightdm/lightdm.conf.d/22-armbian-autologin.conf
+			#[[ -x $(command -v gnome-session) ]] && sed -i "s/user-session.*/user-session=ubuntu/" /etc/lightdm/lightdm.conf.d/11-armbian.conf
+			#[[ -x $(command -v gnome-session) ]] && sed -i "s/user-session.*/user-session=ubuntu/" /etc/lightdm/lightdm.conf.d/22-armbian-autologin.conf
 
-			# select budgie session
+			# select awesome-twdm session
+			[[ -x $(command -v awesome) ]] && sed -i "s/user-session.*/user-session=awesome/" /etc/lightdm/lightdm.conf.d/11-armbian.conf
+			[[ -x $(command -v awesome) ]] && sed -i "s/user-session.*/user-session=awesome/" /etc/lightdm/lightdm.conf.d/22-armbian-autologin.conf
+
+			# select budgie-de session
 			[[ -x $(command -v budgie-desktop) ]] && sed -i "s/user-session.*/user-session=budgie-desktop/" /etc/lightdm/lightdm.conf.d/11-armbian.conf
 			[[ -x $(command -v budgie-desktop) ]] && sed -i "s/user-session.*/user-session=budgie-desktop/" /etc/lightdm/lightdm.conf.d/22-armbian-autologin.conf
 
-			# select deepin session
-			[[ -x $(command -v deepin-wm) ]] && sed -i "s/user-session.*/user-session=deepin/" /etc/lightdm/lightdm.conf.d/11-armbian.conf
-			[[ -x $(command -v deepin-wm) ]] && sed -i "s/user-session.*/user-session=deepin/" /etc/lightdm/lightdm.conf.d/22-armbian-autologin.conf
-
-			# select cinnamon session
+			# select cinnamon-de session
 			[[ -x $(command -v cinnamon) ]] && sed -i "s/user-session.*/user-session=cinnamon/" /etc/lightdm/lightdm.conf.d/11-armbian.conf
 			[[ -x $(command -v cinnamon) ]] && sed -i "s/user-session.*/user-session=cinnamon/" /etc/lightdm/lightdm.conf.d/22-armbian-autologin.conf
 
-			# select mate session
+			# select ice-wm session
+			[[ -x $(command -v icewm-session) ]] && sed -i "s/user-session.*/user-session=icewm-session/" /etc/lightdm/lightdm.conf.d/11-armbian.conf
+			[[ -x $(command -v icewm-session) ]] && sed -i "s/user-session.*/user-session=icewm-session/" /etc/lightdm/lightdm.conf.d/22-armbian-autologin.conf
+
+			# select mate-de session
 			[[ -x $(command -v mate-wm) ]] && sed -i "s/user-session.*/user-session=mate/" /etc/lightdm/lightdm.conf.d/11-armbian.conf
 			[[ -x $(command -v mate-wm) ]] && sed -i "s/user-session.*/user-session=mate/" /etc/lightdm/lightdm.conf.d/22-armbian-autologin.conf
+
+			# select xmonad-twdm session
+			[[ -x $(command -v xmonad) ]] && sed -i "s/user-session.*/user-session=xmonad/" /etc/lightdm/lightdm.conf.d/11-armbian.conf
+			[[ -x $(command -v xmonad) ]] && sed -i "s/user-session.*/user-session=xmonad/" /etc/lightdm/lightdm.conf.d/22-armbian-autologin.conf
 
 			ln -sf /lib/systemd/system/lightdm.service /etc/systemd/system/display-manager.service
 
