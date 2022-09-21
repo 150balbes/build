@@ -1,7 +1,7 @@
 apt-config-auto-update
 anacron
 apt-xapian-index
-at-spi2-core 
+at-spi2-core
 cairo-5c
 cifs-utils
 cinnamon-desktop-environment
@@ -42,9 +42,14 @@ libwmf0.2-7-gtk
 libxapp1
 lightdm
 lightdm-settings
+lm-sensors
 luit
 mousepad
 mousetweaks
+nemo-fileroller
+nemo-font-manager
+nemo-nextcloud
+nemo-owncloud
 nickle
 notification-daemon
 numix-gtk-theme
@@ -70,7 +75,6 @@ redshift
 slick-greeter
 software-properties-gtk
 spice-vdagent
-task-cinnamon-desktop
 tumbler
 tracker
 tracker-extract
@@ -79,7 +83,6 @@ tree
 udisks2
 update-inetd
 upower
-workrave-cinnamon
 xapp
 xapps-common
 xbacklight

@@ -1,5 +1,5 @@
 # overwrite stock lightdm greeter configuration
-if [ -d /etc/riscv/lightdm ]; then cp -R /etc/riscv/lightdm /etc/; fi
+if [ -d /etc/rvbian/lightdm ]; then cp -R /etc/rvbian/lightdm /etc/; fi
 
 # Disable Pulseaudio timer scheduling which does not work with sndhdmi driver
 if [ -f /etc/pulse/default.pa ]; then sed "s/load-module module-udev-detect$/& tsched=0/g" -i /etc/pulse/default.pa; fi
@@ -57,7 +57,7 @@ monospace-font-name='Noto Mono 11'
 toolkit-accessibility=false
 
 [org/gnome/desktop/screensaver]
-picture-uri='file:///usr/share/backgrounds/lightdm/Riscv-0-lightdm.jpg'
+picture-uri='file:///usr/share/backgrounds/rvbian-lightdm/rvbian03-Dre0x-Minum-dark-blurred-3840x2160.jpg'
 
 [org/cinnamon/desktop/applications/terminal]
 exec='/usr/bin/terminator'
