@@ -36,7 +36,6 @@ gstreamer1.0-tools
 gtk2-engines
 gtk2-engines-murrine
 gtk2-engines-pixbuf
-gvfs
 gvfs-backends
 inputattach
 inxi

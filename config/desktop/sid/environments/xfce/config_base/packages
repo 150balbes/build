@@ -28,7 +28,6 @@ gstreamer1.0-tools
 gtk2-engines
 gtk2-engines-murrine
 gtk2-engines-pixbuf
-gvfs
 gvfs-backends
 inputattach
 inxi
@@ -43,7 +42,7 @@ libpam-gnome-keyring
 libu2f-udev
 libwmf0.2-7-gtk
 libxapp1
-libxfce4ui-1-0
+libxfce4ui-2-0
 librsvg2-common
 liburi-perl
 libxfce4util-bin

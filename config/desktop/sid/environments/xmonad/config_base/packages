@@ -1,7 +1,7 @@
 apt-config-auto-update
 anacron
 apt-xapian-index
-at-spi2-core 
+at-spi2-core
 cairo-5c
 cifs-utils
 colord
@@ -28,7 +28,6 @@ gstreamer1.0-tools
 gtk2-engines
 gtk2-engines-murrine
 gtk2-engines-pixbuf
-gvfs
 gvfs-backends
 inputattach
 inxi
