@@ -47,8 +47,11 @@ libwmf0.2-7-gtk
 libxapp1
 libxfce4ui-2-0
 libxfce4ui-common
+libxfce4util-bin
+libxfce4util-common
 libxfce4ui-glade
 libxfce4ui-utils
+libxfce4util7
 librsvg2-common
 liburi-perl
 libxfce4util-bin
