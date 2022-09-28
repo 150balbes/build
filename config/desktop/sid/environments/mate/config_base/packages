@@ -2,6 +2,8 @@ apt-config-auto-update
 anacron
 apt-xapian-index
 at-spi2-core
+blackbird-gtk-theme
+bluebird-gtk-theme
 blueman
 bluetooth
 bluez
@@ -25,6 +27,7 @@ gnome-keyring
 gnome-packagekit
 gnome-system-monitor
 gnome-terminal
+greybird-gtk-theme
 gstreamer1.0-packagekit
 gstreamer1.0-plugins-base-apps
 gstreamer1.0-pulseaudio

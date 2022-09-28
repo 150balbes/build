@@ -3,6 +3,8 @@ anacron
 apt-xapian-index
 arandr
 at-spi2-core
+blackbird-gtk-theme
+bluebird-gtk-theme
 blueman
 bluetooth
 bluez
@@ -28,6 +30,7 @@ gnome-font-viewer
 gnome-power-manager
 gnome-system-monitor
 gnome-system-tools
+greybird-gtk-theme
 gromit
 grun
 gsetroot
