@@ -73,17 +73,18 @@
         <value type="string" value="pasystray"/>
       </property>
       <property name="known-legacy-items" type="array">
+        <value type="string" value="networkmanager applet"/>
         <value type="string" value="xfce4-power-manager"/>
       </property>
     </property>
     <property name="plugin-7" type="string" value="systemload"/>
     <property name="plugin-9" type="string" value="weather">
       <property name="location" type="empty">
-        <property name="name" type="string" value="Elizabethton, Carter County"/>
-        <property name="latitude" type="string" value="36.348720"/>
-        <property name="longitude" type="string" value="-82.210688"/>
+        <property name="name" type="string" value=""/>
+        <property name="latitude" type="string" value="0.000000"/>
+        <property name="longitude" type="string" value="0.000000"/>
       </property>
-      <property name="msl" type="int" value="467"/>
+      <property name="msl" type="int" value="0"/>
       <property name="timezone" type="string" value="America/New_York"/>
       <property name="offset" type="string" value="-04:00"/>
       <property name="cache-max-age" type="int" value="172800"/>
@@ -103,13 +104,14 @@
         <property name="layout" type="int" value="1"/>
         <property name="days" type="int" value="5"/>
       </property>
-      <property name="theme-dir" type="string" value="/usr/share/xfce4/weather/icons/liquid"/>
+      <property name="theme-dir" type="string" value="/usr/share/xfce4/weather/icons/liquid-dark"/>
       <property name="scrollbox" type="empty">
         <property name="show" type="bool" value="true"/>
         <property name="animate" type="bool" value="true"/>
         <property name="lines" type="int" value="1"/>
-        <property name="color" type="string" value="rgba(0,0,0,0)"/>
-        <property name="use-color" type="bool" value="false"/>
+        <property name="color" type="string" value="rgb(255,255,255)"/>
+        <property name="use-color" type="bool" value="true"/>
+        <property name="font" type="string" value="Sans 10"/>
       </property>
     </property>
     <property name="plugin-10" type="string" value="xkb"/>
