@@ -43,6 +43,13 @@ cat <<EOF > "${destination}"/usr/share/mate-background-properties/rvbian.xml
     <scolor>#000000</scolor>
   </wallpaper>
   <wallpaper deleted="false">
+    <name>RVbian bluie-circle</name>
+    <filename>/usr/share/backgrounds/riscv/Riscv-2-logo.jpg</filename>
+    <options>zoom</options>
+    <pcolor>#ffffff</pcolor>
+    <scolor>#000000</scolor>
+  </wallpaper>
+  <wallpaper deleted="false">
     <name>RVbian blue-monday</name>
     <filename>/usr/share/backgrounds/riscv/Riscv-3-logo.jpg</filename>
     <options>zoom</options>
