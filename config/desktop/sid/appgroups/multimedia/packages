@@ -4,6 +4,7 @@ cheese
 mpv
 pithos
 smplayer
+smplayer-themes
 vlc
 vlc-bin
 vlc-data
@@ -12,10 +13,10 @@ vlc-plugin-access-extra
 vlc-plugin-base
 vlc-plugin-bittorrent
 vlc-plugin-notify
-vlc-plugin-qt
 vlc-plugin-samba
 vlc-plugin-skins2
 vlc-plugin-svg
 vlc-plugin-video-output
 vlc-plugin-video-splitter
 vlc-plugin-visualization
+youtube-dl
