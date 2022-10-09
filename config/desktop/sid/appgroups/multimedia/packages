@@ -8,11 +8,14 @@ smplayer-themes
 vlc
 vlc-bin
 vlc-data
-vlc-l10n
+vlc-plugin-abi-3-0-0f
 vlc-plugin-access-extra
 vlc-plugin-base
 vlc-plugin-bittorrent
+vlc-plugin-fluidsynth
+vlc-plugin-jack
 vlc-plugin-notify
+vlc-plugin-pipewire
 vlc-plugin-samba
 vlc-plugin-skins2
 vlc-plugin-svg
