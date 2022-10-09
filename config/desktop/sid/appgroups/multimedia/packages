@@ -2,9 +2,12 @@ audacious
 audacious-plugins
 cheese
 mpv
+mpv-mpris
+playerctl
 pithos
 smplayer
 smplayer-themes
+smtube
 vlc
 vlc-bin
 vlc-data
