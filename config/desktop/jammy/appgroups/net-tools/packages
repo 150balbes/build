@@ -7,7 +7,7 @@ network-manager-fortisslvpn
 network-manager-iodine
 network-manager-l2tp
 network-manager-openconnect
-network-manager-openvpn 
+network-manager-openvpn
 network-manager-pptp
 network-manager-ssh
 network-manager-strongswan
@@ -16,3 +16,4 @@ network-manager-vpnc
 putty
 tmate
 tmate-ssh-server
+usb-modeswitch

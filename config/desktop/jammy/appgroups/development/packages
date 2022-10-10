@@ -4,5 +4,8 @@ build-essential
 clang
 meld
 geany
+geany-plugins
 git-cola
 gnome-builder
+php-codesniffer
+php-pear
