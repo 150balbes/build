@@ -1,8 +1,11 @@
 bluefish
 bluefish-plugins
-build-essential
 clang
+dos2unix
 meld
 geany
+geany-plugins
 git-cola
 gnome-builder
+php-codesniffer
+php-pear

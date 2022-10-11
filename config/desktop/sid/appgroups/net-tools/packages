@@ -4,8 +4,8 @@ libqmi-utils
 modemmanager
 network-manager-pptp
 network-manager-ssh
-network-manager-vpnc
-putty
+network-manager-vpnc 
+putty 
 tmate
 tmate-ssh-server
 usb-modeswitch
