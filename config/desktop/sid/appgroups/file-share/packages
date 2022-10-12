@@ -1,6 +1,5 @@
 samba
 samba-testsuite
 smb-nat
-smb4k
 smbclient
-smbnetfs 
+smbnetfs
