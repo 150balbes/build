@@ -169,22 +169,6 @@ create_sources_list()
 	[[ -z $basedir ]] && exit_with_error "No basedir passed to create_sources_list"
 
 	case $release in
-	buster)
-	cat <<-EOF > "${basedir}"/etc/apt/sources.list
-	deb http://${DEBIAN_MIRROR} $release main contrib non-free
-	#deb-src http://${DEBIAN_MIRROR} $release main contrib non-free
-
-	deb http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free
-	#deb-src http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free
-
-	deb http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free
-	#deb-src http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free
-
-	deb http://${DEBIAN_SECURTY} ${release}/updates main contrib non-free
-	#deb-src http://${DEBIAN_SECURTY} ${release}/updates main contrib non-free
-	EOF
-	;;
-
 	bullseye|bookworm|trixie)
 	cat <<-EOF > "${basedir}"/etc/apt/sources.list
 	deb http://${DEBIAN_MIRROR} $release main contrib non-free
@@ -209,7 +193,7 @@ create_sources_list()
 	EOF
 	;;
 
-	focal|jammy)
+	jammy)
 	cat <<-EOF > "${basedir}"/etc/apt/sources.list
 	deb http://${UBUNTU_MIRROR} $release main restricted universe multiverse
 	#deb-src http://${UBUNTU_MIRROR} $release main restricted universe multiverse
@@ -1415,7 +1399,7 @@ prepare_host()
 	grep -q i386 <(dpkg --print-foreign-architectures) || dpkg --add-architecture i386
 
     if [[ $ARCH == "riscv64" ]]; then
-    
+
         hostdeps+=" gcc-riscv64-linux-gnu libncurses5-dev \
         qtbase5-dev schedtool zstd debian-ports-archive-keyring"
 
