@@ -24,9 +24,6 @@
 # userpatch_create
 # overlayfs_wrapper
 
-
-
-
 compile_atf()
 {
 	if [[ $CLEAN_LEVEL == *make* ]]; then
@@ -110,9 +107,6 @@ compile_atf()
 	# copy license file to pack it to u-boot package later
 	[[ -f license.md ]] && cp license.md "${atftempdir}"/
 }
-
-
-
 
 compile_uboot()
 {
@@ -582,9 +576,6 @@ CUSTOM_KERNEL_CONFIG
 
 }
 
-
-
-
 compile_firmware()
 {
 	display_alert "Merging and packaging linux firmware" "@host" "info"
@@ -635,9 +626,6 @@ compile_firmware()
 	# remove temp directory
 	rm -rf "${firmwaretempdir}"
 }
-
-
-
 
 compile_armbian-zsh()
 {
@@ -712,9 +700,6 @@ compile_armbian-zsh()
 
 }
 
-
-
-
 compile_armbian-config()
 {
 
@@ -748,8 +733,7 @@ compile_armbian-config()
 	END
 
 	install -m 755 "${SRC}"/cache/sources/neofetch/neofetch "${tmp_dir}/${armbian_config_dir}"/usr/bin/neofetch
-	cd "${tmp_dir}/${armbian_config_dir}"/usr/bin/
-	process_patch_file "${SRC}/patch/misc/add-armbian-neofetch.patch" "applying"
+
 
 	install -m 755 "${SRC}"/cache/sources/wireguard-manager/wireguard-manager.sh "${tmp_dir}/${armbian_config_dir}"/usr/bin/wireguard-manager
 	install -m 755 "${SRC}"/cache/sources/armbian-config/scripts/tv_grab_file "${tmp_dir}/${armbian_config_dir}"/usr/bin/tv_grab_file
@@ -767,10 +751,6 @@ compile_armbian-config()
 	rsync --remove-source-files -rq "${tmp_dir}/${armbian_config_dir}.deb" "${DEB_STORAGE}/"
 	rm -rf "${tmp_dir}"
 }
-
-
-
-
 
 compile_xilinx_bootgen()
 {

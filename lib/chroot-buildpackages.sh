@@ -137,11 +137,7 @@ chroot_prepare_distccd()
 	local arch=$2
 	local dest=/tmp/distcc/${release}-${arch}
 	declare -A gcc_version gcc_type
-	gcc_version['buster']='8.3'
 	gcc_version['bullseye']='9.2'
-	gcc_version['bionic']='5.4'
-	gcc_version['focal']='9.2'
-	gcc_version['hirsute']='10.2'
 	gcc_version['sid']='10.2'
 	gcc_version['jammy']='12'
 	gcc_type['armhf']='arm-linux-gnueabihf-'
