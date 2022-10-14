@@ -45,7 +45,7 @@ compile_atf()
 	display_alert "Compiling ATF" "" "info"
 
 # build aarch64
-  if [[ $(dpkg --print-architecture) == amd64 ]]; then
+  if [[ $(dpkg --print-architecture) == amd64 ]] | [[ $(dpkg --print-architecture) == arm64 ]] ; then
 
 	local toolchain
 	toolchain=$(find_toolchain "$ATF_COMPILER" "$ATF_USE_GCC")
@@ -138,7 +138,7 @@ compile_uboot()
 	display_alert "Compiling u-boot" "$version" "info"
 
 # build aarch64
-  if [[ $(dpkg --print-architecture) == amd64 ]]; then
+  if [[ $(dpkg --print-architecture) == amd64 ]] | [[ $(dpkg --print-architecture) == arm64 ]]; then
 
 	local toolchain
 	if [[ $ARCH = "riscv64" ]]; then
@@ -147,7 +147,7 @@ compile_uboot()
     		toolchain=$(find_toolchain "$UBOOT_COMPILER" "$UBOOT_USE_GCC")
     		[[ -z $toolchain ]] && exit_with_error "Could not find required toolchain" "${UBOOT_COMPILER}gcc $UBOOT_USE_GCC"
 	fi
-    
+
 	if [[ -n $UBOOT_TOOLCHAIN2 ]]; then
 		local toolchain2_type toolchain2_ver toolchain2
 		toolchain2_type=$(cut -d':' -f1 <<< "${UBOOT_TOOLCHAIN2}")
@@ -420,7 +420,7 @@ compile_kernel()
 	# if it matches we use the system compiler
 	if $(dpkg-architecture -e "${ARCH}"); then
 		display_alert "Native compilation"
-	elif [[ $(dpkg --print-architecture) == amd64 ]]; then
+	elif [[ $(dpkg --print-architecture) == amd64 ]] || [[ $(dpkg --print-architecture) == arm64 ]]; then
 	        if [[ $ARCH != "riscv64" ]]; then
     			local toolchain
     			toolchain=$(find_toolchain "$KERNEL_COMPILER" "$KERNEL_USE_GCC")
@@ -452,13 +452,6 @@ Called after ${LINUXCONFIG}.config is put in place (.config).
 Before any olddefconfig any Kconfig make is called.
 A good place to customize the .config directly.
 CUSTOM_KERNEL_CONFIG
-
-
-	# hack for OdroidXU4. Copy firmare files
-	if [[ $BOARD == odroidxu4 ]]; then
-		mkdir -p "${kerneldir}/firmware/edid"
-		cp "${SRC}"/packages/blobs/odroidxu4/*.bin "${kerneldir}/firmware/edid"
-	fi
 
 	# hack for deb builder. To pack what's missing in headers pack.
 	cp "${SRC}"/patch/misc/headers-debian-byteshift.patch /tmp
