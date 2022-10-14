@@ -13,9 +13,6 @@
 
 # compilation_prepare
 
-
-
-
 compilation_prepare()
 {
 
@@ -45,71 +42,6 @@ compilation_prepare()
 
 		chmod 755 ${kerneldir}/scripts/package/{builddeb,mkdebian}
 
-	elif linux-version compare "${version}" ge 5.8.17 \
-		&& linux-version compare "${version}" le 5.9 \
-		|| linux-version compare "${version}" ge 5.9.2; then
-			display_alert "Adjusting" "packaging" "info"
-			cd "$kerneldir" || exit
-			process_patch_file "${SRC}/patch/misc/general-packaging-5.8-9.y.patch" "applying"
-	elif linux-version compare "${version}" ge 5.6; then
-		display_alert "Adjusting" "packaging" "info"
-		cd "$kerneldir" || exit
-		process_patch_file "${SRC}/patch/misc/general-packaging-5.6.y.patch" "applying"
-	elif linux-version compare "${version}" ge 5.3; then
-		display_alert "Adjusting" "packaging" "info"
-		cd "$kerneldir" || exit
-		process_patch_file "${SRC}/patch/misc/general-packaging-5.3.y.patch" "applying"
-	fi
-
-	if [[ "${version}" == "4.19."* ]] && [[ "$LINUXFAMILY" == sunxi* || "$LINUXFAMILY" == meson64 || \
-	"$LINUXFAMILY" == mvebu64 || "$LINUXFAMILY" == mt7623 || "$LINUXFAMILY" == mvebu ]]; then
-		display_alert "Adjusting" "packaging" "info"
-		cd "$kerneldir" || exit
-		process_patch_file "${SRC}/patch/misc/general-packaging-4.19.y.patch" "applying"
-	fi
-
-        if [[ "${version}" == "4.19."* ]] && [[ "$LINUXFAMILY" == rk35xx ]]; then
-                display_alert "Adjusting" "packaging" "info"
-                cd "$kerneldir" || exit
-                process_patch_file "${SRC}/patch/misc/general-packaging-4.19.y-rk35xx.patch" "applying"
-        fi
-
-	if [[ "${version}" == "4.14."* ]] && [[ "$LINUXFAMILY" == s5p6818 || "$LINUXFAMILY" == mvebu64 || \
-	"$LINUXFAMILY" == imx7d || "$LINUXFAMILY" == odroidxu4 || "$LINUXFAMILY" == mvebu ]]; then
-		display_alert "Adjusting" "packaging" "info"
-		cd "$kerneldir" || exit
-		process_patch_file "${SRC}/patch/misc/general-packaging-4.14.y.patch" "applying"
-	fi
-
-	if [[ "${version}" == "4.4."* || "${version}" == "4.9."* ]] && \
-	[[ "$LINUXFAMILY" == rockpis || "$LINUXFAMILY" == rk3399 ]]; then
-		display_alert "Adjusting" "packaging" "info"
-		cd "$kerneldir" || exit
-		process_patch_file "${SRC}/patch/misc/general-packaging-4.4.y-rk3399.patch" "applying"
-	fi
-
-	if [[ "${version}" == "4.4."* ]] && \
-	[[ "$LINUXFAMILY" == rockchip64 || "$LINUXFAMILY" == media* || "$LINUXFAMILY" == renegade ]]; then
-		display_alert "Adjusting" "packaging" "info"
-		cd "$kerneldir" || exit
-		if [[ $BOARD == nanopct4 ]]; then
-			process_patch_file "${SRC}/patch/misc/general-packaging-4.4.y-rk3399.patch" "applying"
-		else
-			process_patch_file "${SRC}/patch/misc/general-packaging-4.4.y-rockchip64.patch" "applying"
-		fi
-	fi
-
-	if [[ "${version}" == "4.4."* ]] && \
-	[[ "$LINUXFAMILY" == rockchip || "$LINUXFAMILY" == rk322x || "$LINUXFAMILY" == rk3288 ]]; then
-                display_alert "Adjusting" "packaging" "info"
-                cd "$kerneldir" || exit
-                process_patch_file "${SRC}/patch/misc/general-packaging-4.4.y.patch" "applying"
-        fi
-
-	if [[ "${version}" == "4.9."* ]] && [[ "$LINUXFAMILY" == meson64 || "$LINUXFAMILY" == odroidc4 ]]; then
-		display_alert "Adjusting" "packaging" "info"
-		cd "$kerneldir" || exit
-		process_patch_file "${SRC}/patch/misc/general-packaging-4.9.y.patch" "applying"
 	fi
 
 	# After the patches have been applied,
@@ -137,12 +69,6 @@ compilation_prepare()
 		if linux-version compare "${version}" ge 5.15; then
 			process_patch_file "${SRC}/patch/misc/bootsplash-5.16.y-0002-Revert-vgacon-drop-unused-vga_init_done.patch" "applying"
 		fi
-
-		process_patch_file "${SRC}/patch/misc/bootsplash-5.16.y-0003-Revert-vgacon-remove-software-scrollback-support.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/bootsplash-5.16.y-0004-Revert-drivers-video-fbcon-fix-NULL-dereference-in-f.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/bootsplash-5.16.y-0005-Revert-fbcon-remove-no-op-fbcon_set_origin.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/bootsplash-5.16.y-0006-Revert-fbcon-remove-now-unusued-softback_lines-curso.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/bootsplash-5.16.y-0007-Revert-fbcon-remove-soft-scrollback-code.patch" "applying"
 
 		process_patch_file "${SRC}/patch/misc/0001-bootsplash.patch" "applying"
 		process_patch_file "${SRC}/patch/misc/0002-bootsplash.patch" "applying"
@@ -216,39 +142,6 @@ compilation_prepare()
 		fi
 	fi
 
-
-
-
-	# WireGuard VPN for Linux 3.10 - 5.5
-	if linux-version compare "${version}" ge 3.10 && linux-version compare "${version}" le 5.5 && [ "${WIREGUARD}" == yes ]; then
-
-		# attach to specifics tag or branch
-		local wirever="branch:master"
-
-		display_alert "Adding" "WireGuard VPN for Linux 3.10 - 5.5 ${wirever} " "info"
-		fetch_from_repo "https://git.zx2c4.com/wireguard-linux-compat" "wireguard" "${wirever}" "yes"
-
-		cd "$kerneldir" || exit
-		rm -rf "$kerneldir/net/wireguard"
-		cp -R "${SRC}/cache/sources/wireguard/${wirever#*:}/src/" "$kerneldir/net/wireguard"
-		sed -i "/^obj-\\\$(CONFIG_NETFILTER).*+=/a obj-\$(CONFIG_WIREGUARD) += wireguard/" \
-		"$kerneldir/net/Makefile"
-		sed -i "/^if INET\$/a source \"net/wireguard/Kconfig\"" \
-		"$kerneldir/net/Kconfig"
-		# remove duplicates
-		[[ $(grep -c wireguard "$kerneldir/net/Makefile") -gt 1 ]] && \
-		sed -i '0,/wireguard/{/wireguard/d;}' "$kerneldir/net/Makefile"
-		[[ $(grep -c wireguard "$kerneldir/net/Kconfig") -gt 1 ]] && \
-		sed -i '0,/wireguard/{/wireguard/d;}' "$kerneldir/net/Kconfig"
-		# headers workaround
-		display_alert "Patching WireGuard" "Applying workaround for headers compilation" "info"
-		sed -i '/mkdir -p "$destdir"/a mkdir -p "$destdir"/net/wireguard; \
-		touch "$destdir"/net/wireguard/{Kconfig,Makefile} # workaround for Wireguard' \
-		"$kerneldir/scripts/package/builddeb"
-
-	fi
-
-
 	# Updated USB network drivers for RTL8152/RTL8153 based dongles that also support 2.5Gbs variants
 
 	if linux-version compare "${version}" ge 5.4 && linux-version compare "${version}" le 5.12 && [ $LINUXFAMILY != mvebu64 ] && [ $LINUXFAMILY != rk322x ] && [ $LINUXFAMILY != odroidxu4 ] && [ $EXTRAWIFI == yes ]; then
@@ -295,9 +188,6 @@ compilation_prepare()
 
 	fi
 
-
-
-
 	# Wireless drivers for Realtek 8189FS chipsets
 
 	if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
@@ -329,9 +219,6 @@ compilation_prepare()
 		"$kerneldir/drivers/net/wireless/Kconfig"
 
 	fi
-
-
-
 
 	# Wireless drivers for Realtek 8192EU chipsets
 
@@ -365,9 +252,6 @@ compilation_prepare()
 
 	fi
 
-
-
-
 	# Wireless drivers for Realtek 8811, 8812, 8814 and 8821 chipsets
 
 	if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
@@ -399,10 +283,8 @@ compilation_prepare()
 
 	fi
 
-
-
-
 	# Wireless drivers for Xradio XR819 chipsets
+
 	if linux-version compare "${version}" ge 4.19 && [[ "$LINUXFAMILY" == sunxi* ]] && [[ "$EXTRAWIFI" == yes ]]; then
 
 		display_alert "Adding" "Wireless drivers for Xradio XR819 chipsets" "info"
@@ -433,9 +315,6 @@ compilation_prepare()
                 process_patch_file "${SRC}/patch/misc/wireless-xradio-5.13.patch" "applying"
 
 	fi
-
-
-
 
 	# Wireless drivers for Realtek RTL8811CU and RTL8821C chipsets
 
@@ -480,9 +359,6 @@ compilation_prepare()
 
 	fi
 
-
-
-
 	# Wireless drivers for Realtek 8188EU 8188EUS and 8188ETV chipsets
 
 	if linux-version compare "${version}" ge 3.14 \
@@ -526,9 +402,6 @@ compilation_prepare()
 
 	fi
 
-
-
-
 	# Wireless drivers for Realtek 88x2bu chipsets
 
 	if linux-version compare "${version}" ge 5.0 && [ "$EXTRAWIFI" == yes ]; then
@@ -564,7 +437,6 @@ compilation_prepare()
 		"$kerneldir/drivers/net/wireless/Kconfig"
 
 	fi
-
 
 	# Wireless drivers for Realtek 88x2cs chipsets
 
@@ -604,7 +476,6 @@ compilation_prepare()
 		 sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl88x2cs\/Kconfig"' \
 		 "$kerneldir/drivers/net/wireless/Kconfig"
 	fi
-
 
 	# Bluetooth support for Realtek 8822CS (hci_ver 0x8) chipsets
 	# For sunxi, these two patches are applied in a series.
@@ -654,9 +525,6 @@ compilation_prepare()
 
 	fi
 
-
-
-
 	# Wireless drivers for Realtek 8723DU chipsets
 
 	if linux-version compare $version ge 4.4 && [ "$EXTRAWIFI" == yes ]; then
@@ -696,7 +564,6 @@ compilation_prepare()
 
 		process_patch_file "${SRC}/patch/misc/wireless-rtl8723du.patch" "applying"
 	fi
-
 
 	# Wireless drivers for Realtek 8822BS chipsets
 
