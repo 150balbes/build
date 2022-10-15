@@ -488,7 +488,6 @@ compilation_prepare()
 
 	fi
 
-
 	# Wireless drivers for Realtek 8723DS chipsets
 
 	if linux-version compare "${version}" ge 5.0 && [ "$EXTRAWIFI" == yes ]; then
