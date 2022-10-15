@@ -711,7 +711,6 @@ compile_armbian-config()
 	display_alert "Building deb" "armbian-config" "info"
 
 	fetch_from_repo "$GITHUB_SOURCE/armbian/config" "armbian-config" "branch:master"
-	fetch_from_repo "$GITHUB_SOURCE/dylanaraps/neofetch" "neofetch" "tag:7.1.0"
 
 	mkdir -p "${tmp_dir}/${armbian_config_dir}"/{DEBIAN,usr/bin/,usr/sbin/,usr/lib/armbian-config/}
 
@@ -721,7 +720,7 @@ compile_armbian-config()
 	Version: $REVISION
 	Architecture: all
 	Maintainer: $MAINTAINER <$MAINTAINERMAIL>
-	Replaces: armbian-bsp, neofetch
+	Replaces: armbian-bsp
 	Depends: bash, iperf3, psmisc, curl, bc, expect, dialog, pv, zip, \
 	debconf-utils, unzip, build-essential, html2text, html2text, dirmngr, software-properties-common, debconf, jq
 	Recommends: armbian-bsp
@@ -730,8 +729,6 @@ compile_armbian-config()
 	Priority: optional
 	Description: Armbian configuration utility
 	END
-
-	install -m 755 "${SRC}"/cache/sources/neofetch/neofetch "${tmp_dir}/${armbian_config_dir}"/usr/bin/neofetch
 
 	install -m 755 "${SRC}"/cache/sources/armbian-config/scripts/tv_grab_file "${tmp_dir}/${armbian_config_dir}"/usr/bin/tv_grab_file
 	install -m 755 "${SRC}"/cache/sources/armbian-config/debian-config "${tmp_dir}/${armbian_config_dir}"/usr/sbin/armbian-config

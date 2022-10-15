@@ -8,6 +8,7 @@ fake-hwclock
 figlet
 fping
 ncurses-term
+neofetch
 openssh-server
 parted
 psmisc
