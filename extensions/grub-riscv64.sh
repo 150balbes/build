@@ -65,7 +65,7 @@ pre_umount_final_image__install_grub() {
 	mount_chroot "$chroot_target/" # this already handles /boot/efi which is required for it to work.
 
 	sed -i 's,devicetree,echo,g' "$MOUNT"/etc/grub.d/10_linux >>"${DEST}"/"${LOG_SUBPATH}"/grub-n.log 2>&1
-	cp -r $SRC/packages/blobs/jetson/boot.png "$MOUNT"/boot/grub
+	#cp -r $SRC/packages/blobs/jetson/boot.png "$MOUNT"/boot/grub
 
 	local install_grub_cmdline="update-grub && grub-install --verbose --target=${UEFI_GRUB_TARGET} --no-nvram --removable"
 	display_alert "Installing GRUB EFI..." "${UEFI_GRUB_TARGET}" ""
