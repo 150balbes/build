@@ -21,7 +21,7 @@ compilation_prepare()
 	# Maintaining one from central location starting with 5.3+
 	# Temporally set for new "default->legacy,next->current" family naming
 
-	if linux-version compare "${version}" ge 5.10; then
+	if linux-version compare "${version}" ge 5.17.3; then
 
 		if test -d ${kerneldir}/debian
 		then
@@ -41,7 +41,6 @@ compilation_prepare()
 		cp ${SRC}/packages/armbian/mkdebian ${kerneldir}/scripts/package/mkdebian
 
 		chmod 755 ${kerneldir}/scripts/package/{builddeb,mkdebian}
-
 	fi
 
 	# After the patches have been applied,
@@ -54,76 +53,29 @@ compilation_prepare()
 	fi
 
 	#
-	# Linux splash file
-	#
-
-	# disable it.
-	# todo: cleanup logo generation code and bring in plymouth
-	SKIP_BOOTSPLASH=yes
-
-	if linux-version compare "${version}" ge 5.10 && linux-version compare "${version}" lt 5.19 && [ $SKIP_BOOTSPLASH != yes ]; then
-
-		display_alert "Adding" "Kernel splash file" "info"
-		if linux-version compare "${version}" ge 5.11; then
-			process_patch_file "${SRC}/patch/misc/bootsplash-5.16.y-0000-Revert-fbcon-Avoid-cap-set-but-not-used-warning.patch" "applying"
-		fi
-
-		if ( linux-version compare "${version}" ge 5.18.18 && linux-version compare "${version}" lt 5.19 ) \
-			|| ( linux-version compare "${version}" ge 5.15.61 && linux-version compare "${version}" lt 5.16 ) ; then
-			process_patch_file "${SRC}/patch/misc/0001-Revert-fbcon-Fix-accelerated-fbdev-scrolling-while-logo-is-still-shown.patch" "applying"
-		fi
-
-		process_patch_file "${SRC}/patch/misc/bootsplash-5.16.y-0001-Revert-fbcon-Add-option-to-enable-legacy-hardware-ac.patch" "applying"
-
-		if linux-version compare "${version}" ge 5.15; then
-			process_patch_file "${SRC}/patch/misc/bootsplash-5.16.y-0002-Revert-vgacon-drop-unused-vga_init_done.patch" "applying"
-		fi
-
-		process_patch_file "${SRC}/patch/misc/0001-bootsplash.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/0002-bootsplash.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/0003-bootsplash.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/0004-bootsplash.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/0005-bootsplash.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/0006-bootsplash.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/0007-bootsplash.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/0008-bootsplash.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/0009-bootsplash.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/0010-bootsplash.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/0011-bootsplash.patch" "applying"
-		process_patch_file "${SRC}/patch/misc/0012-bootsplash.patch" "applying"
-
-	fi
-
-	#
 	# mac80211 wireless driver injection features from Kali Linux
 	#
 
-	if linux-version compare "${version}" ge 5.4 && [ $EXTRAWIFI == yes ]; then
+	if linux-version compare "${version}" ge 5.17.3 && [ $EXTRAWIFI == yes ]; then
 
 		display_alert "Adding" "Wireless package injections for mac80211 compatible chipsets" "info"
-		if linux-version compare "${version}" ge 5.9; then
-			process_patch_file "${SRC}/patch/misc/kali-wifi-injection-1-v5.9-post.patch" "applying"
-		else
-			process_patch_file "${SRC}/patch/misc/kali-wifi-injection-1-pre-v5.9.patch" "applying"
-		fi
+		process_patch_file "${SRC}/patch/misc/kali-wifi-injection-1-v5.9-post.patch" "applying"
 		process_patch_file "${SRC}/patch/misc/kali-wifi-injection-2.patch" "applying"
 		process_patch_file "${SRC}/patch/misc/kali-wifi-injection-3.patch" "applying"
 
 	fi
 
-	# AUFS - advanced multi layered unification filesystem for Kernel > 5.1
+	# AUFS - advanced multi layered unification filesystem for Kernel > 5.17
 	#
 	# Older versions have AUFS support with a patch
 
-	if linux-version compare "${version}" gt 5.11 && linux-version compare "${version}" lt 5.20 && [ "$AUFS" == yes ]; then
+	if linux-version compare "${version}" gt 5.17.3 && linux-version compare "${version}" lt 5.19 && [ "$AUFS" == yes ]; then
 
 		# attach to specifics tag or branch
 		local aufstag
 		aufstag=$(echo "${version}" | cut -f 1-2 -d ".")
 
 		# manual overrides
-		if linux-version compare "${version}" ge 5.10.82 && linux-version compare "${version}" le 5.11 ; then aufstag="5.10.82"; fi
-		if linux-version compare "${version}" ge 5.15.41 && linux-version compare "${version}" le 5.16 ; then aufstag="5.15.41"; fi
 		if linux-version compare "${version}" ge 5.17.3 && linux-version compare "${version}" le 5.18 ; then aufstag="5.17.3"; fi
 
 		# check if Mr. Okajima already made a branch for this version
@@ -153,7 +105,7 @@ compilation_prepare()
 
 	# Updated USB network drivers for RTL8152/RTL8153 based dongles that also support 2.5Gbs variants
 
-	if linux-version compare "${version}" ge 5.4 && linux-version compare "${version}" le 5.12 && [ $LINUXFAMILY != mvebu64 ] && [ $LINUXFAMILY != rk322x ] && [ $LINUXFAMILY != odroidxu4 ] && [ $EXTRAWIFI == yes ]; then
+	if linux-version compare "${version}" ge 5.17.3 && linux-version compare "${version}" le 5.19 && [ $EXTRAWIFI == yes ]; then
 
 		# attach to specifics tag or branch
 		local rtl8152ver="branch:master"
@@ -167,7 +119,7 @@ compilation_prepare()
 
 	# Wireless drivers for Realtek 8189ES chipsets
 
-	if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
+	if linux-version compare "${version}" ge 5.17.3 && [ "$EXTRAWIFI" == yes ]; then
 
 		# attach to specifics tag or branch
 		local rtl8189esver="branch:master"
@@ -195,14 +147,11 @@ compilation_prepare()
 		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8189es\/Kconfig"' \
 		"$kerneldir/drivers/net/wireless/Kconfig"
 
-                # add support for 5.19.2
-                process_patch_file "${SRC}/patch/misc/wireless-rtl8189es-5.19.2.patch" "applying"
-
 	fi
 
 	# Wireless drivers for Realtek 8189FS chipsets
 
-	if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
+	if linux-version compare "${version}" ge 5.17.3 && [ "$EXTRAWIFI" == yes ]; then
 
 		# attach to specifics tag or branch
 		local rtl8189fsver="branch:rtl8189fs"
@@ -230,14 +179,11 @@ compilation_prepare()
 		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8189fs\/Kconfig"' \
 		"$kerneldir/drivers/net/wireless/Kconfig"
 
-                # add support for 5.19.2
-                process_patch_file "${SRC}/patch/misc/wireless-rtl8189fs-5.19.2.patch" "applying"
-
 	fi
 
 	# Wireless drivers for Realtek 8192EU chipsets
 
-	if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
+	if linux-version compare "${version}" ge 5.17.3 && [ "$EXTRAWIFI" == yes ]; then
 
 		# attach to specifics tag or branch
 		local rtl8192euver="branch:realtek-4.4.x"
@@ -269,10 +215,10 @@ compilation_prepare()
 
 	# Wireless drivers for Realtek 8811, 8812, 8814 and 8821 chipsets
 
-	if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
+	if linux-version compare "${version}" ge 5.17.3 && [ "$EXTRAWIFI" == yes ]; then
 
 		# attach to specifics tag or branch
-		local rtl8812auver="commit:41532e3b16dcf27f06e6fe5a26314f3aa24d4f87"
+		local rtl8812auver="branch:v5.6.4.2"
 
 		display_alert "Adding" "Wireless drivers for Realtek 8811, 8812, 8814 and 8821 chipsets ${rtl8812auver}" "info"
 
@@ -296,15 +242,10 @@ compilation_prepare()
 		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8812au\/Kconfig"' \
 		"$kerneldir/drivers/net/wireless/Kconfig"
 
-                # add support for 5.19.2
-                process_patch_file "${SRC}/patch/misc/wireless-rtl8812au-5.19.2.patch" "applying"
-
 	fi
 
 	# Wireless drivers for Xradio XR819 chipsets
-
-	if linux-version compare "${version}" ge 4.19 && linux-version compare "${version}" le 5.19 && \
-		[[ "$LINUXFAMILY" == sunxi* ]] && [[ "$EXTRAWIFI" == yes ]]; then
+	if linux-version compare "${version}" ge 5.17.3 && [[ "$LINUXFAMILY" == sunxi* ]] && [[ "$EXTRAWIFI" == yes ]]; then
 
 		display_alert "Adding" "Wireless drivers for Xradio XR819 chipsets" "info"
 
@@ -337,7 +278,7 @@ compilation_prepare()
 
 	# Wireless drivers for Realtek RTL8811CU and RTL8821C chipsets
 
-	if linux-version compare "${version}" ge 3.14 && [ "$EXTRAWIFI" == yes ]; then
+	if linux-version compare "${version}" ge 5.17.3 && [ "$EXTRAWIFI" == yes ]; then
 
 		# attach to specifics tag or branch
 		local rtl8811cuver="commit:8c2226a74ae718439d56248bd2e44ccf717086d5"
@@ -376,15 +317,12 @@ compilation_prepare()
 		# add support for 5.18.y
 		process_patch_file "${SRC}/patch/misc/wireless-rtl8821cu.patch" "applying"
 
-		# add support for 5.19.2
-                process_patch_file "${SRC}/patch/misc/wireless-rtl8811cu-5.19.2.patch" "applying"
-
 	fi
 
 	# Wireless drivers for Realtek 8188EU 8188EUS and 8188ETV chipsets
 
-	if linux-version compare "${version}" ge 3.14 \
-		&& linux-version compare "${version}" lt 5.15 \
+	if linux-version compare "${version}" ge 5.17.3 \
+		&& linux-version compare "${version}" lt 5.19.2 \
 		&& [ "$EXTRAWIFI" == yes ]; then
 
 		# attach to specifics tag or branch
@@ -426,10 +364,10 @@ compilation_prepare()
 
 	# Wireless drivers for Realtek 88x2bu chipsets
 
-	if linux-version compare "${version}" ge 5.0 && [ "$EXTRAWIFI" == yes ]; then
+	if linux-version compare "${version}" ge 5.17.3 && [ "$EXTRAWIFI" == yes ]; then
 
 		# attach to specifics tag or branch
-		local rtl88x2buver="branch:fix-6.0"
+		local rtl88x2buver="branch:5.8.7.1_35809.20191129_COEX20191120-7777"
 
 		display_alert "Adding" "Wireless drivers for Realtek 88x2bu chipsets ${rtl88x2buver}" "info"
 
@@ -458,14 +396,11 @@ compilation_prepare()
 		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl88x2bu\/Kconfig"' \
 		"$kerneldir/drivers/net/wireless/Kconfig"
 
-		# add support for 5.19.2
-                process_patch_file "${SRC}/patch/misc/wireless-rtl88x2bu-5.19.2.patch" "applying"
-
 	fi
 
 	# Wireless drivers for Realtek 88x2cs chipsets
 
-	if linux-version compare "${version}" ge 5.9 && [ "$EXTRAWIFI" == yes ]; then
+	if linux-version compare "${version}" ge 5.17.3 && [ "$EXTRAWIFI" == yes ]; then
 
 		# attach to specifics tag or branch
 		local rtl88x2csver="branch:tune_for_jethub"
@@ -502,9 +437,10 @@ compilation_prepare()
 		 "$kerneldir/drivers/net/wireless/Kconfig"
 	fi
 
+
 	# Bluetooth support for Realtek 8822CS (hci_ver 0x8) chipsets
 	# For sunxi, these two patches are applied in a series.
-	if linux-version compare "${version}" ge 5.11 && [[ "$LINUXFAMILY" != sunxi* ]] ; then
+	if linux-version compare "${version}" ge 5.17.3 ; then
 
 		display_alert "Adding" "Bluetooth support for Realtek 8822CS (hci_ver 0x8) chipsets" "info"
 
@@ -513,9 +449,10 @@ compilation_prepare()
 
 	fi
 
+
 	# Wireless drivers for Realtek 8723DS chipsets
 
-	if linux-version compare "${version}" ge 5.0 && [ "$EXTRAWIFI" == yes ]; then
+	if linux-version compare "${version}" ge 5.17.3 && [ "$EXTRAWIFI" == yes ]; then
 
 		# attach to specifics tag or branch
 		local rtl8723dsver="branch:master"
@@ -547,13 +484,11 @@ compilation_prepare()
 		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8723ds\/Kconfig"' \
 		"$kerneldir/drivers/net/wireless/Kconfig"
 
-		process_patch_file "${SRC}/patch/misc/wireless-rtl8723ds-5.19.2.patch" "applying"
-
 	fi
 
 	# Wireless drivers for Realtek 8723DU chipsets
 
-	if linux-version compare $version ge 4.4 && [ "$EXTRAWIFI" == yes ]; then
+	if linux-version compare $version ge 5.17.3 && [ "$EXTRAWIFI" == yes ]; then
 
 		# attach to specifics tag or branch
 		display_alert "Adding" "Wireless drivers for Realtek 8723DU chipsets ${rtl8723duver}" "info"
@@ -562,7 +497,11 @@ compilation_prepare()
 			local rtl8723duver="branch:local_rtl8723du-rk"
 			fetch_from_repo "$GITHUB_SOURCE/150balbes/wifi" "rtl8723du" "${rtl8723duver}" "yes"
 		else
-			local rtl8723duver="branch:master"
+			if linux-version compare $version ge 5.12 ; then
+				local rtl8723duver="branch:v5.13.4"
+			else
+				local rtl8723duver="branch:master"
+			fi
 			fetch_from_repo "$GITHUB_SOURCE/lwfinger/rtl8723du" "rtl8723du" "${rtl8723duver}" "yes"
 		fi
 		cd "$kerneldir" || exit
@@ -584,12 +523,12 @@ compilation_prepare()
 		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8723du\/Kconfig"' \
 		$kerneldir/drivers/net/wireless/Kconfig
 
-		process_patch_file "${SRC}/patch/misc/wireless-rtl8723du-5.19.2.patch" "applying"
+		process_patch_file "${SRC}/patch/misc/wireless-rtl8723du.patch" "applying"
 	fi
 
 	# Wireless drivers for Realtek 8822BS chipsets
 
-	if linux-version compare "${version}" ge 4.4 && linux-version compare "${version}" le 5.16 && [ "$EXTRAWIFI" == yes ]; then
+	if linux-version compare "${version}" ge 5.17.3 && linux-version compare "${version}" le 5.19.2 && [ "$EXTRAWIFI" == yes ]; then
 
 		# attach to specifics tag or branch
 		display_alert "Adding" "Wireless drivers for Realtek 8822BS chipsets ${rtl8822bsver}" "info"
@@ -620,7 +559,7 @@ compilation_prepare()
 
 	# Exfat driver
 
-	if linux-version compare "${version}" ge 4.9 && linux-version compare "${version}" le 5.4; then
+	if linux-version compare "${version}" ge 5.17.3 && linux-version compare "${version}" le 5.19/2; then
 
 		# attach to specifics tag or branch
 		display_alert "Adding" "exfat driver ${exfatsver}" "info"
@@ -650,11 +589,6 @@ compilation_prepare()
 		cp "${SRC}/cache/sources/exfat/${exfatsver#*:}/Kconfig" \
 		"$kerneldir/fs/exfat/Kconfig"
 
-	fi
-
-	if linux-version compare $version ge 4.4 && linux-version compare $version lt 5.8; then
-		display_alert "Adjusting" "Framebuffer driver for ST7789 IPS display" "info"
-		process_patch_file "${SRC}/patch/misc/fbtft-st7789v-invert-color.patch" "applying"
 	fi
 
 }
