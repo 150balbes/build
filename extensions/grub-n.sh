@@ -35,8 +35,8 @@ pre_umount_final_image__install_grub() {
 	display_alert "Installing bootloader" "GRUB" "info"
 
 	# getting rid of the dtb package, if installed, is hard. for now just zap it, otherwise update-grub goes bananas
-	mkdir -p "$MOUNT"/boot/efi/dtb
-	cp -r "$MOUNT"/boot/dtb/* "$MOUNT"/boot/efi/dtb/
+#	mkdir -p "$MOUNT"/boot/efi/dtb
+#	cp -r "$MOUNT"/boot/dtb/* "$MOUNT"/boot/efi/dtb/
 
 
 	# add config to disable os-prober, otherwise image will have the host's other OSes boot entries.
@@ -47,7 +47,7 @@ pre_umount_final_image__install_grub() {
 	# Mount the chroot...
 	mount_chroot "$chroot_target/" # this already handles /boot/efi which is required for it to work.
 
-	sed -i 's,devicetree,echo,g' "$MOUNT"/etc/grub.d/10_linux >>"${DEST}"/"${LOG_SUBPATH}"/grub-n.log 2>&1
+	sed -i '/devicetree/c devicetree    /boot\/dtb\/'"$BOOT_FDT_FILE" "$MOUNT"/etc/grub.d/10_linux >>"${DEST}"/"${LOG_SUBPATH}"/grub-n.log 2>&1
 	cp -r $SRC/packages/blobs/jetson/boot.png "$MOUNT"/boot/grub
 
 	local install_grub_cmdline="update-grub && grub-install --verbose --target=${UEFI_GRUB_TARGET} --no-nvram --removable"

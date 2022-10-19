@@ -125,6 +125,7 @@ Armbian [releases](https://docs.armbian.com/Release_Changelog/) quarterly at the
 │   ├── sources                          Kernel and u-boot sources locations and scripts
 │   ├── templates                        User configuration templates which populate userpatches
 │   └── torrents                         External compiler and rootfs cache torrents
+├── extensions                           extend build system with specific functionality
 ├── lib                                  Main build framework libraries
 ├── output                               Build artifact
 │   └── deb                              Deb packages
@@ -146,6 +147,7 @@ Armbian [releases](https://docs.armbian.com/Release_Changelog/) quarterly at the
 │   └── u-boot                           Universal boot loader patches
 |       ├── u-boot-board                 For specific board
 |       └── u-boot-family                For entire kernel family
+├── tools                                Tools for dealing with kernel patches and configs
 └── userpatches                          User: configuration patching area
     ├── lib.config                       User: framework common config/override file
     ├── config-default.conf              User: default user config file
