@@ -128,9 +128,7 @@ if [[ $(systemd-detect-virt) == 'none' ]]; then
 
 fi
 
-
 rm "${TMPFILE}"
-
 
 if [[ "${EUID}" == "0" ]] || [[ "${1}" == "vagrant" ]]; then
 	:
@@ -208,23 +206,18 @@ if [[ "${1}" == docker && -f /etc/debian_version && -z "$(command -v docker)" ]]
 
 fi
 
-
 # Create userpatches directory if not exists
 mkdir -p "${SRC}"/userpatches
 
-
 # Create example configs if none found in userpatches
-if ! ls "${SRC}"/userpatches/{config-default.conf,config-docker.conf,config-vagrant.conf} 1> /dev/null 2>&1; then
-
-	# Migrate old configs
-	if ls "${SRC}"/*.conf 1> /dev/null 2>&1; then
-		display_alert "Migrate config files to userpatches directory" "all *.conf" "info"
-                cp "${SRC}"/*.conf "${SRC}"/userpatches  || exit 1
-		rm "${SRC}"/*.conf
-		[[ ! -L "${SRC}"/userpatches/config-example.conf ]] && ln -fs config-example.conf "${SRC}"/userpatches/config-default.conf || exit 1
-	fi
+if ! ls "${SRC}"/userpatches/{config-cli.conf,config-default.conf,config-desktop-full.conf,config-desktop-miniamal.conf,config-docker.conf,config-vagrant.conf} 1> /dev/null 2>&1; then
 
 	display_alert "Create example config file using template" "config-default.conf" "info"
+
+	# Create cli config
+	if [[ ! -f "${SRC}"/userpatches/config-cli.conf ]]; then
+		cp "${SRC}"/config/templates/config-cli.conf "${SRC}"/userpatches/config-cli.conf || exit 1
+	fi
 
 	# Create example config
 	if [[ ! -f "${SRC}"/userpatches/config-example.conf ]]; then
@@ -236,15 +229,25 @@ if ! ls "${SRC}"/userpatches/{config-default.conf,config-docker.conf,config-vagr
                 ln -fs config-example.conf "${SRC}"/userpatches/config-default.conf || exit 1
 	fi
 
+	# Create desktop full config
+	if [[ ! -f "${SRC}"/userpatches/config-desktop-full.conf ]]; then
+		cp "${SRC}"/config/templates/config-desktop-full.conf "${SRC}"/userpatches/config-desktop-full.conf || exit 1
+	fi
+
+	# Create desktop minimal config
+	if [[ ! -f "${SRC}"/userpatches/config-desktop-minimal.conf ]]; then
+		cp "${SRC}"/config/templates/config-desktop-minimal.conf "${SRC}"/userpatches/config-desktop-minimal.conf || exit 1
+	fi
+
 	# Create Docker config
 	if [[ ! -f "${SRC}"/userpatches/config-docker.conf ]]; then
 		cp "${SRC}"/config/templates/config-docker.conf "${SRC}"/userpatches/config-docker.conf || exit 1
 	fi
 
 	# Create Docker file
-        if [[ ! -f "${SRC}"/userpatches/Dockerfile ]]; then
+    if [[ ! -f "${SRC}"/userpatches/Dockerfile ]]; then
 		cp "${SRC}"/config/templates/Dockerfile "${SRC}"/userpatches/Dockerfile || exit 1
-        fi
+    fi
 
 	# Create Vagrant config
 	if [[ ! -f "${SRC}"/userpatches/config-vagrant.conf ]]; then
