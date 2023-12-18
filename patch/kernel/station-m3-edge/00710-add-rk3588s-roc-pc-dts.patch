@@ -1,0 +1,34 @@
+new file mode 100644
+index 00000000000..d194812b840
+--- /dev/null
++++ b/arch/arm64/boot/dts/rockchip/rk3588s-roc-pc.dts
+@@ -0,0 +1,28 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2021 Rockchip Electronics Co., Ltd.
++ *
++ */
++
++/dts-v1/;
++
++#include "rk3588s-roc-pc.dtsi"
++
++/ {
++	model = "Firefly ROC-RK3588S-PC SATA";
++	compatible = "rockchip,roc-rk3588s-pc", "rockchip,rk3588s", "rockchip,rk3588";
++};
++
++&sata0 {
++    pinctrl-names = "default";
++    pinctrl-0 = <&sata_reset>;
++    status = "okay";
++};
++
++&pinctrl {
++	sata {
++		sata_reset:sata-reset{
++			rockchip,pins = <3 RK_PD1 RK_FUNC_GPIO &pcfg_pull_up>;
++		};
++	};
++};
+

@@ -1,4 +1,5 @@
 glmark2
+glmark2-wayland
 mesa-utils
 chromium-browser
 firefox-esr

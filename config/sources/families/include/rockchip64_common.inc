@@ -165,7 +165,7 @@ prepare_boot_configuration() {
 	elif [[ $BOOT_SCENARIO == "spl-blobs" ]]; then
 
 		if [[ $BOARD == quartz64a || $BOARD == quartz64b || $BOARD == soquartz ]]; then
-			UBOOT_TARGET_MAP="BL31=$RKBIN_DIR/$BL31_BLOB spl/u-boot-spl.bin all;;idbloader.img u-boot.itb"
+			UBOOT_TARGET_MAP="ROCKCHIP_TPL=$RKBIN_DIR/$DDR_BLOB BL31=$RKBIN_DIR/$BL31_BLOB spl/u-boot-spl.bin all;;idbloader.img u-boot.itb"
 		else
 			UBOOT_TARGET_MAP="BL31=$RKBIN_DIR/$BL31_BLOB spl/u-boot-spl.bin u-boot.dtb u-boot.itb;;idbloader.img u-boot.itb"
 		fi

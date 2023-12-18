@@ -1,0 +1,14 @@
+--- a/scripts/Makefile.package
++++ b/scripts/Makefile.package
+@@ -151,6 +151,10 @@
+ 		--rules-file='$(MAKE) -f debian/rules' -r$(KBUILD_PKG_ROOTCMD) -a$$(cat debian/arch), \
+ 		--no-check-builddeps) \
+ 	$(DPKG_FLAGS))
++
++PHONY += intdeb-pkg
++intdeb-pkg:
++	+$(CONFIG_SHELL) $(srctree)/scripts/package/builddeb
+ 
+ # snap-pkg
+ # ---------------------------------------------------------------------------
+

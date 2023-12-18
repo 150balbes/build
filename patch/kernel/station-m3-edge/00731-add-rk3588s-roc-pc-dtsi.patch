@@ -1,0 +1,43 @@
+--- a/arch/arm64/boot/dts/rockchip/rk3588s-roc-pc.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3588s-roc-pc.dtsi
+@@ -217,6 +217,11 @@
+ //	sram-supply = <&vdd_gpu_mem_s0>;
+ //	status = "okay";
+ //};
++
++&display_subsystem {
++	clocks = <&hdptxphy_hdmi_clk0>;
++	clock-names = "hdmi0_phy_pll";
++};
+ 
+ &i2c0 {
+ 	pinctrl-names = "default";
+@@ -525,3 +530,27 @@
+ 		};
+ 	};
+ };
++
++&hdmi0 {
++	status = "okay";
++};
++
++&hdmi0_in_vp0 {
++	status = "okay";
++};
++
++&hdptxphy_hdmi0 {
++	status = "okay";
++};
++
++&hdptxphy_hdmi_clk0 {
++	status = "okay";
++};
++
++&vop_mmu {
++	status = "okay";
++};
++
++&vop {
++	status = "okay";
++};
+

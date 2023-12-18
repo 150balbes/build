@@ -38,9 +38,14 @@
 }
 
 pre_umount_final_image__install_grub() {
+	display_alert "Installing " "GRUB" "info"
+	if [[ "${DISTRIBUTION}" == "Debian" ]]; then
+		local def=""
+	else
+		local def="/default"
+	fi
 	configure_grub
 	local chroot_target=$MOUNT
-	display_alert "Installing bootloader" "GRUB" "info"
 
 	# getting rid of the dtb package, if installed, is hard. for now just zap it, otherwise update-grub goes bananas
 	mkdir -p "$MOUNT"/boot/efi/dtb
@@ -48,7 +53,7 @@ pre_umount_final_image__install_grub() {
 	cp -r ${SRC}/packages/blobs/splash/grub.png "$MOUNT"/boot/grub
 
 	# add config to disable os-prober, otherwise image will have the host's other OSes boot entries.
-	cat <<- grubCfgFragHostSide >> "${MOUNT}"/etc/default/grub.d/99-armbian-host-side.cfg
+	cat <<- grubCfgFragHostSide >> "${MOUNT}"/etc"${def}"/grub.d/99-armbian-host-side.cfg
 		GRUB_DISABLE_OS_PROBER=true
 	grubCfgFragHostSide
 
@@ -63,7 +68,8 @@ pre_umount_final_image__install_grub() {
 		cp "${SRC}"/packages/blobs/edk2/debian_10_linux "${MOUNT}"/etc/grub.d/10_linux
 	fi
 
-	sed -i '/devicetree/c devicetree    /boot\/dtb\/'"$BOOT_FDT_FILE" "$MOUNT"/etc/grub.d/10_linux >>"${DEST}"/"${LOG_SUBPATH}"/grub-n.log 2>&1
+	sed -i '/devicetree/c devicetree    /boot\/dtb\/'"$BOOT_FDT_FILE" "$MOUNT"/etc/grub.d/10_linux
+# >> "${DEST}"/"${LOG_SUBPATH}"/grub-n.log 2>&1
 #	sed -i '/devicetree/c echo' "$MOUNT"/etc/grub.d/10_linux >>"${DEST}"/"${LOG_SUBPATH}"/grub-n.log 2>&1
 
 #	if [[ -n $EDK_UBOOT ]]; then
@@ -77,14 +83,10 @@ pre_umount_final_image__install_grub() {
 	}
 
 	# Remove host-side config.
-	rm -f "${MOUNT}"/etc/default/grub.d/99-armbian-host-side.cfg
+	rm -f "${MOUNT}"/etc"${def}"/grub.d/99-armbian-host-side.cfg
 
 	local root_uuid
 	root_uuid=$(blkid -s UUID -o value "${LOOP}p${uefipart}") # get the uuid of the root partition, this has been transposed
-
-	if [[ $BOARD == jetson-nano ]]; then
-		cp -R $SRC/packages/blobs/jetson/boot.scr "${MOUNT}"/boot/efi/boot.scr
-	fi
 
 	umount_chroot "$chroot_target/"
 }
@@ -96,7 +98,7 @@ configure_grub() {
 		GRUB_CMDLINE_LINUX_DEFAULT+=" ${MAIN_CMDLINE}"
 
 	display_alert "GRUB EFI kernel cmdline" "${GRUB_CMDLINE_LINUX_DEFAULT} distro=${UEFI_GRUB_DISTRO_NAME} timeout=${UEFI_GRUB_TIMEOUT}" ""
-	cat <<- grubCfgFrag >> "${MOUNT}"/etc/default/grub.d/98-armbian.cfg
+	cat <<- grubCfgFrag >> "${MOUNT}"/etc"${def}"/grub.d/98-armbian.cfg
 		GRUB_CMDLINE_LINUX_DEFAULT="${GRUB_CMDLINE_LINUX_DEFAULT}"
 		GRUB_TIMEOUT_STYLE=menu                                  # Show the menu with Kernel options (Armbian or -generic)...
 		GRUB_TIMEOUT=${UEFI_GRUB_TIMEOUT}                        # ... for ${UEFI_GRUB_TIMEOUT} seconds, then boot the Armbian default.
@@ -106,13 +108,13 @@ configure_grub() {
 	grubCfgFrag
 
 	if [[ "a${UEFI_GRUB_DISABLE_OS_PROBER}" != "a" ]]; then
-		cat <<- grubCfgFragHostSide >> "${MOUNT}"/etc/default/grub.d/98-armbian.cfg
+		cat <<- grubCfgFragHostSide >> "${MOUNT}"/etc"${def}"/grub.d/98-armbian.cfg
 			GRUB_DISABLE_OS_PROBER=${UEFI_GRUB_DISABLE_OS_PROBER}
 		grubCfgFragHostSide
 	fi
 
 	if [[ "a${UEFI_GRUB_TERMINAL}" != "a" ]]; then
-		cat <<- grubCfgFragTerminal >> "${MOUNT}"/etc/default/grub.d/98-armbian.cfg
+		cat <<- grubCfgFragTerminal >> "${MOUNT}"/etc"${def}"/grub.d/98-armbian.cfg
 			GRUB_TERMINAL="${UEFI_GRUB_TERMINAL}"
 		grubCfgFragTerminal
 	fi
