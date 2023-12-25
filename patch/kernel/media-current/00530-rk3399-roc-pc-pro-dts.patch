@@ -1,0 +1,398 @@
+From 2c29b33d95b9a8ba0d25ccc537bea95f730016eb Mon Sep 17 00:00:00 2001
+From: balbes150 <balbes-150@yandex.ru>
+Date: Tue, 11 Apr 2023 16:59:09 +0300
+Subject: [PATCH] 1
+
+Signed-off-by: balbes150 <balbes-150@yandex.ru>
+---
+ arch/arm64/boot/dts/rockchip/Makefile         |   1 +
+ .../boot/dts/rockchip/rk3399-roc-pc-pro.dts   | 365 ++++++++++++++++++
+ 2 files changed, 366 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/rockchip/rk3399-roc-pc-pro.dts
+
+diff --git a/arch/arm64/boot/dts/rockchip/Makefile b/arch/arm64/boot/dts/rockchip/Makefile
+index 9bda3e7b8a541..073581f88cd1f 100644
+--- a/arch/arm64/boot/dts/rockchip/Makefile
++++ b/arch/arm64/boot/dts/rockchip/Makefile
+@@ -56,6 +56,7 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-puma-haikou.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-roc-pc.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-roc-pc-mezzanine.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-roc-pc-plus.dtb
++dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-roc-pc-pro.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-rock-4c-plus.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-rock-pi-4a.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-rock-pi-4a-plus.dtb
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399-roc-pc-pro.dts b/arch/arm64/boot/dts/rockchip/rk3399-roc-pc-pro.dts
+new file mode 100644
+index 0000000000000..4627a74c89418
+--- /dev/null
++++ b/arch/arm64/boot/dts/rockchip/rk3399-roc-pc-pro.dts
+@@ -0,0 +1,365 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++/*
++ * Copyright (c) 2022 T-Chip Intelligent Technology Co., Ltd
++ */
++
++/dts-v1/;
++#include "rk3399-roc-pc.dtsi"
++
++/delete-node/ &fusb1;
++/delete-node/ &hub_rst;
++/delete-node/ &mp8859;
++/delete-node/ &vcc_sys_en;
++/delete-node/ &vcc_vbus_typec0;
++/delete-node/ &yellow_led;
++
++/ {
++	model = "Firefly ROC-RK3399-PC-Pro";
++	compatible = "firefly,roc-rk3399-pc", "rockchip,rk3399";
++
++	aliases {
++		mmc2 = &sdio0;
++	};
++
++	dc_12v: dc-12v {
++		compatible = "regulator-fixed";
++		regulator-name = "dc_12v";
++		regulator-always-on;
++		regulator-boot-on;
++		regulator-min-microvolt = <12000000>;
++		regulator-max-microvolt = <12000000>;
++	};
++
++	es8388-sound {
++		compatible = "simple-audio-card";
++		pinctrl-names = "default";
++		pinctrl-0 = <&hp_det_pin>;
++		simple-audio-card,name = "rockchip,es8388-codec";
++		simple-audio-card,format = "i2s";
++		simple-audio-card,mclk-fs = <256>;
++		simple-audio-card,widgets =
++			"Microphone", "Mic Jack",
++			"Headphone", "Headphones";
++		simple-audio-card,routing =
++			"LINPUT1", "Mic Jack",
++			"Headphone Amp INL", "LOUT2",
++			"Headphone Amp INR", "ROUT2",
++			"Headphones", "Headphone Amp OUTL",
++			"Headphones", "Headphone Amp OUTR";
++		simple-audio-card,hp-det-gpio = <&gpio2 RK_PA6 GPIO_ACTIVE_HIGH>;
++		simple-audio-card,aux-devs = <&headphones_amp>;
++		simple-audio-card,pin-switches = "Headphones";
++
++		simple-audio-card,codec {
++			sound-dai = <&es8388>;
++		};
++
++		simple-audio-card,cpu {
++			sound-dai = <&i2s1>;
++		};
++	};
++
++	gpio-fan {
++		#cooling-cells = <2>;
++		compatible = "gpio-fan";
++		gpio-fan,speed-map = <0 0 3000 1>;
++		gpios = <&gpio1 RK_PA1 GPIO_ACTIVE_HIGH>;
++	};
++
++	/delete-node/ gpio-keys;
++
++	/* not amplifier, used as switcher only */
++	headphones_amp: headphones-amp {
++		compatible = "simple-audio-amplifier";
++		pinctrl-names = "default";
++		pinctrl-0 = <&ear_ctl_pin>;
++		enable-gpios = <&gpio0 RK_PA2 GPIO_ACTIVE_HIGH>;
++		sound-name-prefix = "Headphone Amp";
++		VCC-supply = <&vcca3v0_codec>;
++	};
++
++	ir-receiver {
++		linux,rc-map-name = "rc-khadas";
++	};
++
++	leds {
++		pinctrl-names = "default";
++		pinctrl-0 = <&work_led_pin>, <&diy_led_pin>;
++	};
++
++	wireless-wlan {
++		compatible = "wlan-platdata";
++		rockchip,grf = <&grf>;
++		wifi_chip_type = "ap6356s";
++		sdio_vref = <1800>;
++		WIFI,host_wake_irq = <&gpio0 3 GPIO_ACTIVE_HIGH>; /* GPIO0_a3 */
++		status = "okay";
++	};
++
++	wireless-bluetooth {
++		compatible = "bluetooth-platdata";
++		clocks = <&rk808 1>;
++		clock-names = "ext_clock";
++		//wifi-bt-power-toggle;
++		uart_rts_gpios = <&gpio2 19 GPIO_ACTIVE_LOW>; /* GPIO2_C3 */
++		pinctrl-names = "default", "rts_gpio";
++		pinctrl-0 = <&uart0_rts>;
++		pinctrl-1 = <&uart0_gpios>;
++		//BT,power_gpio  = <&gpio3 19 GPIO_ACTIVE_HIGH>; /* GPIOx_xx */
++		BT,reset_gpio    = <&gpio0 9 GPIO_ACTIVE_HIGH>; /* GPIO0_B1 */
++		BT,wake_gpio     = <&gpio2 26 GPIO_ACTIVE_HIGH>; /* GPIO2_D2 */
++		BT,wake_host_irq = <&gpio0 4 GPIO_ACTIVE_HIGH>; /* GPIO0_A4 */
++		status = "okay";
++	};
++
++	vcc_wifi: vcc-wifi {
++		status = "okay";
++		compatible = "regulator-fixed";
++		regulator-name = "vcc_wifi";
++		enable-active-high;
++		gpio = <&gpio2 4 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&vcc_wifi_h>;
++		regulator-always-on;
++		regulator-boot-on;
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++	};
++
++	sdio_pwrseq: sdio-pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		clocks = <&rk808 1>;
++		clock-names = "ext_clock";
++		pinctrl-names = "default";
++		pinctrl-0 = <&wifi_enable_h>;
++
++		/*
++		 * On the module itself this is one of these (depending
++		 * on the actual card populated):
++		 * - SDIO_RESET_L_WL_REG_ON
++		 * - PDN (power down when low)
++		 */
++		reset-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>; /* GPIO0_B2 */
++	};
++
++	vcc3v3_ngff: vcc3v3-ngff {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc3v3_ngff";
++		enable-active-high;
++		gpio = <&gpio4 RK_PD3 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&vcc3v3_ngff_en>;
++		regulator-always-on;
++		regulator-boot-on;
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		vin-supply = <&sys_12v>;
++	};
++
++	vcc3v3_pcie: vcc3v3-pcie {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc3v3_pcie";
++		enable-active-high;
++		gpio = <&gpio1 RK_PC1 GPIO_ACTIVE_HIGH>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&vcc3v3_pcie_en>;
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		vin-supply = <&sys_12v>;
++	};
++};
++
++&pcie_phy {
++	status = "okay";
++};
++
++&pcie0 {
++	ep-gpios = <&gpio4 RK_PD1 GPIO_ACTIVE_HIGH>;
++	num-lanes = <4>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&pcie_perst>;
++	vpcie3v3-supply = <&vcc3v3_pcie>;
++	vpcie1v8-supply = <&vcc1v8_pmu>;
++	vpcie0v9-supply = <&vcca_0v9>;
++	status = "okay";
++};
++
++&fusb0 {
++	vbus-supply = <&vcc_vbus_typec1>;
++};
++
++//&i2c0 {
++//	hym8563: rtc@51 {
++//		compatible = "haoyu,hym8563";
++//		reg = <0x51>;
++//		interrupt-parent = <&gpio0>;
++//		interrupts = <RK_PA5 IRQ_TYPE_EDGE_FALLING>;
++//		#clock-cells = <0>;
++//		clock-output-names = "xin32k";
++//		pinctrl-names = "default";
++//		pinctrl-0 = <&hym8563_int>;
++//	};
++//};
++
++&i2c1 {
++	es8388: es8388@11 {
++		compatible = "everest,es8388";
++		reg = <0x11>;
++		clock-names = "mclk";
++		clocks = <&cru SCLK_I2S_8CH_OUT>;
++		#sound-dai-cells = <0>;
++	};
++};
++
++/* <4 RK_PA0 1 &pcfg_pull_none> is used as i2s_8ch_mclk_pin */
++&i2s0_8ch_bus {
++	rockchip,pins =
++		<3 RK_PD0 1 &pcfg_pull_none>,
++		<3 RK_PD1 1 &pcfg_pull_none>,
++		<3 RK_PD2 1 &pcfg_pull_none>,
++		<3 RK_PD3 1 &pcfg_pull_none>,
++		<3 RK_PD4 1 &pcfg_pull_none>,
++		<3 RK_PD5 1 &pcfg_pull_none>,
++		<3 RK_PD6 1 &pcfg_pull_none>,
++		<3 RK_PD7 1 &pcfg_pull_none>;
++};
++
++&i2s0 {
++	pinctrl-names = "default";
++};
++
++&i2s1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&i2s_8ch_mclk_pin>, <&i2s1_2ch_bus>;
++	rockchip,playback-channels = <2>;
++	rockchip,capture-channels = <2>;
++	status = "okay";
++};
++
++&pinctrl {
++	es8388 {
++		ear_ctl_pin: ear-ctl-pin {
++			rockchip,pins = <0 RK_PA2 RK_FUNC_GPIO &pcfg_output_high>;
++		};
++
++		hp_det_pin: hp-det-pin {
++			rockchip,pins = <2 RK_PA6 RK_FUNC_GPIO &pcfg_pull_down>;
++		};
++	};
++
++//	hym8563 {
++//		hym8563_int: hym8563-int {
++//			rockchip,pins = <0 RK_PA5 RK_FUNC_GPIO &pcfg_pull_up>;
++//		};
++//	};
++
++	i2s1 {
++		i2s_8ch_mclk_pin: i2s-8ch-mclk-pin {
++			rockchip,pins = <4 RK_PA0 1 &pcfg_pull_none>;
++		};
++	};
++
++	ngff {
++		vcc3v3_ngff_en: vcc3v3-ngff-en {
++			rockchip,pins = <4 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
++	pcie {
++		vcc3v3_pcie_en: vcc3v3-pcie-en {
++			rockchip,pins = <1 RK_PC1 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++
++		pcie_perst: pcie-perst {
++			rockchip,pins = <4 RK_PD1 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
++	sdio-pwrseq {
++		wifi_enable_h: wifi-enable-h {
++			rockchip,pins =	<0 10 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
++	wifi {
++		vcc_wifi_h: vcc-wifi-h {
++			rockchip,pins = <2 4 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++
++	wireless-bluetooth {
++		uart0_gpios: uart0-gpios {
++			rockchip,pins = <2 19 RK_FUNC_GPIO &pcfg_pull_none>;
++		};
++	};
++};
++
++&u2phy0 {
++	status = "okay";
++
++	u2phy0_otg: otg-port {
++		phy-supply = <&vcc_vbus_typec1>;
++		status = "okay";
++	};
++
++	u2phy0_host: host-port {
++		phy-supply = <&vcc5v0_host>;
++		status = "okay";
++	};
++};
++
++&u2phy1 {
++	status = "okay";
++
++	u2phy1_otg: otg-port {
++		phy-supply = <&vcc5v0_host>;
++		status = "okay";
++	};
++
++	u2phy1_host: host-port {
++		phy-supply = <&vcc5v0_host>;
++		status = "okay";
++	};
++};
++
++&sdio0 {
++	max-frequency = <100000000>;
++	bus-width = <4>;
++	cap-sd-highspeed;
++	cap-sdio-irq;
++	keep-power-in-suspend;
++	mmc-pwrseq = <&sdio_pwrseq>;
++	non-removable;
++	pinctrl-names = "default";
++	pinctrl-0 = <&sdio0_bus4 &sdio0_cmd &sdio0_clk>;
++	sd-uhs-sdr104;
++	vmmc-supply = <&vcc3v3_ngff>;
++	vqmmc-supply = <&vcc_1v8>;
++	supports-sdio;
++	disable-wp;
++	num-slots = <1>;
++	status = "okay";
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_xfer &uart0_cts &uart0_rts>;
++	status = "okay";
++};
++
++&usbdrd_dwc3_0 {
++	dr_mode = "host";
++	status = "okay";
++};
++
++&vcc_sys {
++	/* vcc_sys is fixed, not controlled by any gpio */
++	/delete-property/ gpio;
++	/delete-property/ pinctrl-names;
++	/delete-property/ pinctrl-0;
++};
++
++&vcc5v0_host {
++	pinctrl-names = "default";
++	pinctrl-0 = <&vcc5v0_host_en>;
++};
+-- 
+Created with Armbian build tools https://github.com/armbian/build
+

@@ -88,14 +88,14 @@ elif [[ $BOOT_SOC == rk3566 ]]; then
 elif [[ $BOOT_SOC == rk3568 ]]; then
 
 	BOOT_SCENARIO="${BOOT_SCENARIO:=spl-blobs}"
-	DDR_BLOB="${DDR_BLOB:=rk35/rk3568_ddr_1560MHz_v1.10.bin}"
-	BL31_BLOB='rk35/rk3568_bl31_v1.28.elf'
+	DDR_BLOB="${DDR_BLOB:=rk35/rk3568_ddr_1560MHz_v1.13.bin}"
+	BL31_BLOB='rk35/rk3568_bl31_v1.32.elf'
 
 elif [[ $BOOT_SOC == rk3588 ]]; then
 
 	BOOT_SCENARIO="${BOOT_SCENARIO:=spl-blobs}"
-	DDR_BLOB="${DDR_BLOB:=rk35/rk3588_ddr_lp4_2112MHz_lp5_2736MHz_v1.08.bin}"
-	BL31_BLOB='rk35/rk3588_bl31_v1.28.elf'
+	DDR_BLOB="${DDR_BLOB:=rk35/rk3588_ddr_lp4_2112MHz_lp5_2736MHz_v1.09.bin}"
+	BL31_BLOB='rk35/rk3588_bl31_v1.32.elf'
 
 elif [[ $BOARD == rockpi-s ]]; then
 
@@ -155,7 +155,11 @@ prepare_boot_configuration() {
 
 	elif [[ $BOOT_SCENARIO == "spl-blobs" ]]; then
 
-		UBOOT_TARGET_MAP="BL31=$RKBIN_DIR/$BL31_BLOB spl/u-boot-spl.bin u-boot.dtb u-boot.itb;;idbloader.img u-boot.itb"
+		if [[ $BOARD == quartz64a || $BOARD == quartz64b || $BOARD == soquartz ]]; then
+			UBOOT_TARGET_MAP="ROCKCHIP_TPL=$RKBIN_DIR/$DDR_BLOB BL31=$RKBIN_DIR/$BL31_BLOB spl/u-boot-spl.bin all;;idbloader.img u-boot.itb"
+		else
+			UBOOT_TARGET_MAP="BL31=$RKBIN_DIR/$BL31_BLOB spl/u-boot-spl.bin u-boot.dtb u-boot.itb;;idbloader.img u-boot.itb"
+		fi
 		ATFSOURCE=''
 		ATF_COMPILE='no'
 
@@ -200,7 +204,7 @@ uboot_custom_postprocess() {
 	fi
 
 	if [[ $BOOT_SUPPORT_SPI == yes ]]; then
-		if [[ $BOARD == "rock-3a" ]] || [[ $BOARD == "rock-5b" ]] || [[ $BOARD == "orangepi5" ]]; then
+		if [[ $BOARD == "rock-3a" ]] || [[ $BOARD == "rock-5b" ]] || [[ $BOARD == "orangepi5" ]] || [[ $BOARD == "khadas-edge2" ]]; then
 			dd if=/dev/zero of=rkspi_loader.img bs=1M count=0 seek=16
 			/sbin/parted -s rkspi_loader.img mklabel gpt
 			/sbin/parted -s rkspi_loader.img unit s mkpart idbloader 64 7167
@@ -322,7 +326,7 @@ family_tweaks() {
 		chroot $SDCARD /bin/bash -c "echo HandlePowerKey=ignore >> /etc/systemd/login.d"
 	fi
 
-	if [[ $BOARD == station* ]]; then
+	if [[ ($BOARD == station* || $BOARD == firefly-itx-3588j) ]]; then
 
 		cp -R $SRC/packages/blobs/rtl8723bt_fw/* $SDCARD/lib/firmware/rtl_bt/
 		cp -R $SRC/packages/blobs/station/firmware/* $SDCARD/lib/firmware/
