@@ -1,0 +1,25 @@
+From f3f23297d683bc4e226e3defa5aa6bd71a812c70 Mon Sep 17 00:00:00 2001
+From: Ondrej Jirman <megi@xff.cz>
+Date: Tue, 18 Jul 2023 18:53:31 +0200
+Subject: [PATCH 481/482] mfs: rk8xxx-core: Remove extra rk808-clkout
+
+Signed-off-by: Ondrej Jirman <megi@xff.cz>
+---
+ drivers/mfd/rk8xx-core.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/mfd/rk8xx-core.c b/drivers/mfd/rk8xx-core.c
+index 99d07b36b003..56bbfb175f38 100644
+--- a/drivers/mfd/rk8xx-core.c
++++ b/drivers/mfd/rk8xx-core.c
+@@ -118,7 +118,6 @@ static const struct mfd_cell rk817s[] = {
+ static const struct mfd_cell rk818s[] = {
+ 	{ .name = "rk808-clkout", .id = PLATFORM_DEVID_NONE, },
+ 	{ .name = "rk808-regulator", .id = PLATFORM_DEVID_NONE, },
+-	{ .name = "rk808-clkout", },
+ 	{ .name = "rk818-battery", .of_compatible = "rockchip,rk818-battery", },
+ 	{ .name = "rk818-charger", .of_compatible = "rockchip,rk818-charger", },
+ 	{
+-- 
+2.35.3
+

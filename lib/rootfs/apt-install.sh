@@ -8,9 +8,18 @@ install_deb_chroot() {
 		chroot "${SDCARD}" /bin/bash -c "apt-cache policy $name | \
 			awk '/Candidate:/{print \$2}'"
 		)
+	if [ "$version" == "" ]; then
+		display_alert "The package is missing" "${name}" "wrn"
+		echo "The package [${name}] is missing" >> "${DEST}"/${LOG_SUBPATH}/install.log
+		return 0
+	elif [ "$version" == "(none)" ];then
+		display_alert "The package cannot be installed" "${name}" "wrn"
+		echo "The package [${name}] cannot be installed" >> "${DEST}"/${LOG_SUBPATH}/install.log
+		return 0
+	fi
 	desc+=" $(
 		chroot "${SDCARD}" /bin/bash -c "apt-cache madison $name | \
-			awk -v v=$version '{if(\$3 ~ v) print \$5}'"
+			awk -v v="$version" '{if(\$3 ~ v) print \$5}'"
 	)"
 	display_alert "Installing${desc}" "${name/\/root\//} ($version)"
 

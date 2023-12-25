@@ -1,0 +1,33 @@
+From 70eaf7049de1e7962b88bbe44284b3cabec09a9b Mon Sep 17 00:00:00 2001
+From: Ondrej Jirman <megi@xff.cz>
+Date: Tue, 18 Jul 2023 19:30:17 +0200
+Subject: [PATCH 482/482] wireless: brcmfmac: Drop useless error messages
+
+Signed-off-by: Ondrej Jirman <megi@xff.cz>
+---
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/wcc/core.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/wcc/core.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/wcc/core.c
+index 02de99818efa..58477f4ed9e5 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/wcc/core.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/wcc/core.c
+@@ -12,13 +12,13 @@
+ 
+ static int brcmf_wcc_attach(struct brcmf_pub *drvr)
+ {
+-	pr_err("%s: executing\n", __func__);
++	//pr_err("%s: executing\n", __func__);
+ 	return 0;
+ }
+ 
+ static void brcmf_wcc_detach(struct brcmf_pub *drvr)
+ {
+-	pr_err("%s: executing\n", __func__);
++	//pr_err("%s: executing\n", __func__);
+ }
+ 
+ const struct brcmf_fwvid_ops brcmf_wcc_ops = {
+-- 
+2.35.3
+

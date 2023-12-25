@@ -14,7 +14,7 @@ exit_with_error() {
 	_file=$(basename "${BASH_SOURCE[1]}")
 	local stacktrace="$(get_extension_hook_stracktrace "${BASH_SOURCE[*]}" "${BASH_LINENO[*]}")"
 
-	display_alert "ERROR in function $_function" "$stacktrace" "err"
+	display_alert "ERROR in function $_function" "\n$stacktrace" "line"
 	display_alert "$_description" "$_highlight" "err"
 	display_alert "Process terminated" "" "info"
 

@@ -33,7 +33,8 @@ create_tmp_local_repo() {
 	aptly -config="${conf}" repo create temp |& tee -a "${DEST}"/${LOG_SUBPATH}/aptly.log
 
 	files_to_add="$(
-		find "${DEB_STORAGE}/" -name '*'$ARCH'*'.deb -o -name '*'all'*'.deb
+		find "${DEB_STORAGE}/${RELEASE}/" -name '*'$ARCH'*'.deb
+		find "${DEB_STORAGE}/" -maxdepth 1 -name '*'all'*'.deb
 	)"
 	for f in $files_to_add; do
 		aptly -config="${conf}" repo add temp "$f" \
@@ -68,6 +69,7 @@ add_tmp_local_repo_to_source_list() {
 	local release=$1
 	local basedir=$2
 	[ -d "$basedir" ] || exit_with_error "For the function [$0] bad argument [\$2=$2] folder not found"
+	display_alert "Add tmp local repo" "$basedir" "info"
 	# apt-key add is getting deprecated
 	APT_VERSION=$(chroot "${basedir}" /bin/bash -c "apt -v | awk '{print \$2}'")
 	if linux-version compare "${APT_VERSION}" ge 2.4.1; then
@@ -95,6 +97,7 @@ add_tmp_local_repo_to_source_list() {
 remove_tmp_local_repo() {
 	local basedir=$1
 	if [ -d $basedir ]; then
+		display_alert "Remove tmp local repo" "$basedir" "info"
 		rm "${basedir}"/usr/share/keyrings/buildpkg.gpg
 		rm "${basedir}"/etc/apt/sources.list.d/armbian-temp.list 2>/dev/null
 		rm "${basedir}"/etc/apt/preferences.d/90-armbian-temp.pref 2>/dev/null

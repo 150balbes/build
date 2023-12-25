@@ -6,6 +6,7 @@
 mount_chroot() {
 
 	local target=$1
+	display_alert "Mounting" "$target" "info"
 	mount -t tmpfs tmpfs "${target}/tmp"
 	mount -t proc chproc "${target}"/proc
 	mount -t sysfs chsys "${target}"/sys

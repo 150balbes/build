@@ -1,0 +1,34 @@
+Source: htop
+Section: utils
+Priority: optional
+Maintainer: Daniel Lange <DLange@debian.org>
+Uploaders: Eugene V. Lyubimkin <jackyf@debian.org>,
+           Graham Inggs <ginggs@debian.org>
+Build-Depends: debhelper-compat (= 13),
+               dpkg-dev (>= 1.16.1.1),
+               libdevstat-dev [kfreebsd-any],
+               libhwloc-dev [!linux-any],
+               libkvm-dev [kfreebsd-any],
+               libncurses5-dev,
+               libncursesw5-dev,
+               libnl-3-dev [linux-any],
+               libnl-genl-3-dev [linux-any],
+               libsensors-dev [!hurd-any],
+               pkg-config
+Standards-Version: 4.6.1
+Rules-Requires-Root: no
+Homepage: https://htop.dev/
+Vcs-Browser: https://salsa.debian.org/debian/htop
+Vcs-Git: https://salsa.debian.org/debian/htop.git
+
+Package: htop
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Suggests: lm-sensors, lsof, strace
+Description: interactive processes viewer
+ Htop is an ncursed-based process viewer similar to top, but it
+ allows one to scroll the list vertically and horizontally to see
+ all processes and their full command lines.
+ .
+ Tasks related to processes (killing, renicing) can be done without
+ entering their PIDs.

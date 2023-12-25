@@ -308,8 +308,8 @@ POST_FAMILY_TWEAKS_BSP
 
 	# create board DEB file
 	fakeroot dpkg-deb -b -Z${DEB_COMPRESS} "${destination}" "${destination}.deb" >> "${DEST}"/${LOG_SUBPATH}/output.log 2>&1
-	mkdir -p "${DEB_STORAGE}/"
-	rsync --remove-source-files -rq "${destination}.deb" "${DEB_STORAGE}/"
+	mkdir -p "${DEB_STORAGE}/${RELEASE}/bsp-cli"
+	rsync --remove-source-files -rq "${destination}.deb" "${DEB_STORAGE}/${RELEASE}/bsp-cli/"
 
 	# cleanup
 	rm -rf ${bsptempdir}

@@ -38,7 +38,9 @@ install_distribution_specific() {
 			sed -i "s/#RateLimitBurst=.*/RateLimitBurst=10000/g" "${SDCARD}"/etc/systemd/journald.conf
 
 			# Chrony temporal fix https://bugs.launchpad.net/ubuntu/+source/chrony/+bug/1878005
-			sed -i '/DAEMON_OPTS=/s/"-F -1"/"-F 0"/' "${SDCARD}"/etc/default/chrony
+			if [ -f "${SDCARD}"/etc/default/chrony ]; then
+				sed -i '/DAEMON_OPTS=/s/"-F -1"/"-F 0"/' "${SDCARD}"/etc/default/chrony
+			fi
 
 			# disable conflicting services
 			chroot "${SDCARD}" /bin/bash -c "systemctl --no-reload mask ondemand.service >/dev/null 2>&1"
@@ -96,6 +98,8 @@ create_sources_list() {
 	local basedir=$2
 	[[ -z $basedir ]] && exit_with_error "No basedir passed to create_sources_list"
 
+	display_alert "Create sources list for" "$release" "info"
+
 	case $release in
 		buster)
 			cat <<- EOF > "${basedir}"/etc/apt/sources.list
@@ -113,7 +117,7 @@ create_sources_list() {
 			EOF
 			;;
 
-		bullseye | bookworm | trixie)
+		bullseye | trixie)
 			cat <<- EOF > "${basedir}"/etc/apt/sources.list
 				deb http://${DEBIAN_MIRROR} $release main contrib non-free
 				#deb-src http://${DEBIAN_MIRROR} $release main contrib non-free
@@ -126,6 +130,22 @@ create_sources_list() {
 
 				deb http://${DEBIAN_SECURTY} ${release}-security main contrib non-free
 				#deb-src http://${DEBIAN_SECURTY} ${release}-security main contrib non-free
+			EOF
+			;;
+
+		bookworm)
+			cat <<- EOF > "${basedir}"/etc/apt/sources.list
+				deb http://${DEBIAN_MIRROR} $release main contrib non-free non-free-firmware
+				#deb-src http://${DEBIAN_MIRROR} $release main contrib non-free non-free-firmware
+
+				deb http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free non-free-firmware
+				#deb-src http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free non-free-firmware
+
+				deb http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free non-free-firmware
+				#deb-src http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free non-free-firmware
+
+				deb http://${DEBIAN_SECURTY} ${release}-security main contrib non-free non-free-firmware
+				#deb-src http://${DEBIAN_SECURTY} ${release}-security main contrib non-free non-free-firmware
 			EOF
 			;;
 
@@ -152,6 +172,14 @@ create_sources_list() {
 			EOF
 			;;
 	esac
+}
+
+# Adding Vendor sources list to /etc/apt/sources.list.d/ and authentication key
+#
+add_armbian_sources_list() {
+	local release=$1
+	local basedir=$2
+	[[ -z $basedir ]] && exit_with_error "No basedir passed to create_sources_list"
 
 	display_alert "Adding Armbian repository and authentication key" "/etc/apt/sources.list.d/armbian.list" "info"
 
@@ -170,21 +198,33 @@ create_sources_list() {
 	fi
 
 	# stage: add armbian repository and install key
+	local ARMBIAN_MIRROR
 	if [[ $DOWNLOAD_MIRROR == "china" ]]; then
-		echo "deb ${SIGNED_BY}https://mirrors.tuna.tsinghua.edu.cn/armbian $RELEASE main ${RELEASE}-utils ${RELEASE}-desktop" > "${basedir}"/etc/apt/sources.list.d/armbian.list
+		ARMBIAN_MIRROR="https://mirrors.tuna.tsinghua.edu.cn/armbian"
 	elif [[ $DOWNLOAD_MIRROR == "bfsu" ]]; then
-		echo "deb ${SIGNED_BY}http://mirrors.bfsu.edu.cn/armbian $RELEASE main ${RELEASE}-utils ${RELEASE}-desktop" > "${basedir}"/etc/apt/sources.list.d/armbian.list
+		ARMBIAN_MIRROR="http://mirrors.bfsu.edu.cn/armbian"
+	elif [[ -n $LOCAL_MIRROR ]]; then
+		# local package server if defined. Suitable for development
+		ARMBIAN_MIRROR=$LOCAL_MIRROR
 	else
-		echo "deb ${SIGNED_BY}http://"$([[ $BETA == yes ]] && echo "beta" || echo "apt")".armbian.com $RELEASE main ${RELEASE}-utils ${RELEASE}-desktop" > "${basedir}"/etc/apt/sources.list.d/armbian.list
+		ARMBIAN_MIRROR="http://"$([[ $BETA == yes ]] && echo "beta" || echo "apt")".armbian.com"
 	fi
 
-	# replace local package server if defined. Suitable for development
-	[[ -n $LOCAL_MIRROR ]] && echo "deb ${SIGNED_BY}http://$LOCAL_MIRROR $RELEASE main ${RELEASE}-utils ${RELEASE}-desktop" > "${basedir}"/etc/apt/sources.list.d/armbian.list
+	cat <<- EOF > "${basedir}"/etc/apt/sources.list.d/armbian.list
+		deb ${SIGNED_BY}${ARMBIAN_MIRROR} $release main ${release}-utils ${release}-desktop
+	EOF
 
-	# disable repo if SKIP_ARMBIAN_REPO=yes
-	if [[ "${SKIP_ARMBIAN_REPO}" == "yes" ]]; then
-		display_alert "Disabling armbian repo" "${ARCH}-${RELEASE}" "wrn"
-		mv "${SDCARD}"/etc/apt/sources.list.d/armbian.list "${SDCARD}"/etc/apt/sources.list.d/armbian.list.disabled
-	fi
+	# Packages available locally from the list have the highest priority of 999
+	# All packages from the external Armbian repository have a very low priority
+	# and can only be installed if this repository is specified, not automatically.
+	cat <<- 'EOF' > "${basedir}"/etc/apt/preferences.d/10-armbian.pref
+		Package: armbian-* linux-image-* linux-headers-* linux-libc-dev linux-u-boot-*
+		Pin: origin ""
+		Pin-Priority: 999
+
+		Package: *
+		Pin: release o=armbian
+		Pin-Priority: -10
+	EOF
 
 }

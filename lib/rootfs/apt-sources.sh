@@ -74,8 +74,7 @@ add_apt_sources() {
 
 add_desktop_package_sources() {
 
-	# Myy : I see Snap and Flatpak coming up in the next releases
-	# so... let's prepare for that
+	echo -e "\nDEBUG:\n add_desktop_package_sources:" >> "${DEST}"/${LOG_SUBPATH}/install.log
 
 	add_apt_sources
 
@@ -83,4 +82,5 @@ add_desktop_package_sources() {
 	ls -l "${SDCARD}/etc/apt/sources.list.d" >> "${DEST}"/${LOG_SUBPATH}/install.log
 	cat "${SDCARD}/etc/apt/sources.list" >> "${DEST}"/${LOG_SUBPATH}/install.log
 
+	echo -e "\nEND DEBUG add_desktop_package_sources\n" >> "${DEST}"/${LOG_SUBPATH}/install.log
 }

@@ -65,8 +65,6 @@ build_validate_buildOnly() {
 		display_alert "BUILD_ONLY has task name:" "chroot" "wrn"
 		if [ "$EXTERNAL_NEW" == "prebuilt" ] || [  "$EXTERNAL_NEW" == "compile" ]; then
 			display_alert "An incident." "EXTERNAL_NEW=$EXTERNAL_NEW" "wrn"
-		elif [ -z $EXTERNAL_NEW ]; then
-			display_alert "EXTERNAL_NEW has empty value" "call dialog" "err"
 		fi
 	fi
 

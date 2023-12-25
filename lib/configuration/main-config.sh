@@ -10,6 +10,8 @@
 # https://github.com/armbian/build/
 
 function do_main_configuration() {
+	# $SUDOUSER it is regular user name
+	SUDOUSER=$(awk -F':' '$1 ~ /sudo/{print $NF}' /etc/group)
 
 	# common options
 	# daily beta build contains date in subrevision
@@ -32,7 +34,14 @@ function do_main_configuration() {
 	[[ -z $HOST ]] && HOST="$BOARD"                         # set hostname to the board
 	cd "${SRC}" || exit
 
-	[[ -z "${CHROOT_CACHE_VERSION}" ]] && CHROOT_CACHE_VERSION=7
+	# CHROOT_CACHE_VERSION It can have two values: "devel", "clean".
+	# clean - includes a minimal set of development packages and is designed
+	# to verify the correctness of the prescribed dependencies for building
+	# a package.
+	# devel - includes a very large set of development packages and should be
+	# suitable for assembling documentation.
+	[[ -z "${CHROOT_CACHE_VERSION}" ]] && CHROOT_CACHE_VERSION=clean
+
 	BUILD_REPOSITORY_URL=$(improved_git remote get-url $(improved_git remote 2> /dev/null | grep origin) 2> /dev/null)
 	BUILD_REPOSITORY_COMMIT=$(improved_git describe --match=d_e_a_d_b_e_e_f --always --dirty 2> /dev/null)
 	ROOTFS_CACHE_MAX=200 # max number of rootfs cache, older ones will be cleaned up
@@ -184,32 +193,9 @@ function do_main_configuration() {
 	if [[ "$HAS_VIDEO_OUTPUT" == "no" ]]; then
 		SKIP_BOOTSPLASH="yes"
 		PLYMOUTH="no"
-		[[ $BUILD_DESKTOP != "no" ]] && exit_with_error "HAS_VIDEO_OUTPUT is set to no. So we shouldn't build desktop environment"
+		[[ $BUILD_DESKTOP != "no" ]] && \
+		exit_with_error "HAS_VIDEO_OUTPUT is set to no. So we shouldn't build desktop environment"
 	fi
-
-	## Extensions: at this point we've sourced all the config files that will be used,
-	##             and (hopefully) not yet invoked any extension methods. So this is the perfect
-	##             place to initialize the extension manager. It will create functions
-	##             like the 'post_family_config' that is invoked below.
-	initialize_extension_manager
-
-	call_extension_method "post_family_config" "config_tweaks_post_family_config" << 'POST_FAMILY_CONFIG'
-*give the config a chance to override the family/arch defaults*
-This hook is called after the family configuration (`sources/families/xxx.conf`) is sourced.
-Since the family can override values from the user configuration and the board configuration,
-it is often used to in turn override those.
-POST_FAMILY_CONFIG
-
-	interactive_desktop_main_configuration
-
-	#exit_with_error 'Testing'
-
-	# set unique mounting directory
-	MOUNT_UUID=$(uuidgen)
-	SDCARD="${SRC}/.tmp/rootfs-${MOUNT_UUID}"
-	MOUNT="${SRC}/.tmp/mount-${MOUNT_UUID}"
-	DESTIMG="${SRC}/.tmp/image-${MOUNT_UUID}"
-
 	[[ -n $ATFSOURCE && -z $ATF_USE_GCC ]] && exit_with_error "Error in configuration: ATF_USE_GCC is unset"
 	[[ -z $UBOOT_USE_GCC ]] && exit_with_error "Error in configuration: UBOOT_USE_GCC is unset"
 	[[ -z $KERNEL_USE_GCC ]] && exit_with_error "Error in configuration: KERNEL_USE_GCC is unset"
@@ -227,12 +213,81 @@ POST_FAMILY_CONFIG
 		DISTRIBUTION="Debian"
 	fi
 
-	CLI_CONFIG_PATH="${SRC}/config/cli/${RELEASE}"
-	DEBOOTSTRAP_CONFIG_PATH="${CLI_CONFIG_PATH}/debootstrap"
+	DEBIAN_MIRROR='deb.debian.org/debian'
+	DEBIAN_SECURTY='security.debian.org/'
+	[[ "${ARCH}" == "amd64" ]] &&
+		UBUNTU_MIRROR='archive.ubuntu.com/ubuntu/' ||
+		UBUNTU_MIRROR='ports.ubuntu.com/'
+
+	if [[ $DOWNLOAD_MIRROR == "china" ]]; then
+		DEBIAN_MIRROR='mirrors.tuna.tsinghua.edu.cn/debian'
+		DEBIAN_SECURTY='mirrors.tuna.tsinghua.edu.cn/debian-security'
+		[[ "${ARCH}" == "amd64" ]] &&
+			UBUNTU_MIRROR='mirrors.tuna.tsinghua.edu.cn/ubuntu/' ||
+			UBUNTU_MIRROR='mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/'
+	fi
+
+	if [[ $DOWNLOAD_MIRROR == "bfsu" ]]; then
+		DEBIAN_MIRROR='mirrors.bfsu.edu.cn/debian'
+		DEBIAN_SECURTY='mirrors.bfsu.edu.cn/debian-security'
+		[[ "${ARCH}" == "amd64" ]] &&
+			UBUNTU_MIRROR='mirrors.bfsu.edu.cn/ubuntu/' ||
+			UBUNTU_MIRROR='mirrors.bfsu.edu.cn/ubuntu-ports/'
+	fi
+
+	# apt-cacher-ng mirror configurarion
+	if [[ $DISTRIBUTION == Ubuntu ]]; then
+		APT_MIRROR=$UBUNTU_MIRROR
+	else
+		APT_MIRROR=$DEBIAN_MIRROR
+	fi
+
+	[[ -n $APT_PROXY_ADDR ]] && display_alert "Using custom apt-cacher-ng address" "$APT_PROXY_ADDR" "info"
+
+	# optimize build time with 100% CPU usage
+	CPUS=$(grep -c 'processor' /proc/cpuinfo)
+	if [[ $USEALLCORES != no ]]; then
+
+		CTHREADS="-j$((CPUS + CPUS / 2))"
+
+	else
+
+		CTHREADS="-j1"
+
+	fi
+
+	## Extensions: at this point we've sourced all the config files that will
+	##             be used, and (hopefully) not yet invoked any extension methods.
+	##             So this is the perfect place to initialize the extension manager.
+	##             It will create functions like the 'post_family_config'
+	##             that is invoked below.
+	initialize_extension_manager
+
+	call_extension_method "post_family_config" "config_tweaks_post_family_config" <<-'POST_FAMILY_CONFIG'
+		*give the config a chance to override the family/arch defaults*
+		This hook is called after the family configuration
+		(`sources/families/xxx.conf`) is sourced. Since the family can override
+		values from the user configuration and the board configuration, it is
+		often used to in turn override those.
+		POST_FAMILY_CONFIG
+
+if ! string_is_contain "${BUILD_ONLY}" "chroot"; then
+
+	interactive_desktop_main_configuration
 
 	if [[ $? != 0 ]]; then
 		exit_with_error "The desktop environment ${DESKTOP_ENVIRONMENT} is not available for your architecture ${ARCH}"
 	fi
+
+	# set unique mounting directory
+	MOUNT_UUID=$(uuidgen)
+	SDCARD="${SRC}/.tmp/rootfs-${MOUNT_UUID}"
+	MOUNT="${SRC}/.tmp/mount-${MOUNT_UUID}"
+	DESTIMG="${SRC}/.tmp/image-${MOUNT_UUID}"
+
+
+	CLI_CONFIG_PATH="${SRC}/config/cli/${RELEASE}"
+	DEBOOTSTRAP_CONFIG_PATH="${CLI_CONFIG_PATH}/debootstrap"
 
 	AGGREGATION_SEARCH_ROOT_ABSOLUTE_DIRS="
 	${SRC}/config
@@ -287,9 +342,6 @@ POST_FAMILY_CONFIG
 	show_checklist_variables "DEBOOTSTRAP_LIST DEBOOTSTRAP_COMPONENTS PACKAGE_LIST PACKAGE_LIST_ADDITIONAL PACKAGE_LIST_UNINSTALL"
 
 	# Dependent desktop packages
-	# Myy : Sources packages from file here
-
-	# Myy : FIXME Rename aggregate_all to aggregate_all_desktop
 	if [[ $BUILD_DESKTOP == "yes" ]]; then
 		PACKAGE_LIST_DESKTOP+="$(one_line aggregate_all_desktop "packages" " ")"
 		echo -e "\nGroups selected ${DESKTOP_APPGROUPS_SELECTED} -> PACKAGES :" >> "${LOG_OUTPUT_FILE}"
@@ -297,59 +349,25 @@ POST_FAMILY_CONFIG
 	fi
 	unset LOG_OUTPUT_FILE
 
-	DEBIAN_MIRROR='deb.debian.org/debian'
-	DEBIAN_SECURTY='security.debian.org/'
-	[[ "${ARCH}" == "amd64" ]] &&
-		UBUNTU_MIRROR='archive.ubuntu.com/ubuntu/' ||
-		UBUNTU_MIRROR='ports.ubuntu.com/'
-
-	if [[ $DOWNLOAD_MIRROR == "china" ]]; then
-		DEBIAN_MIRROR='mirrors.tuna.tsinghua.edu.cn/debian'
-		DEBIAN_SECURTY='mirrors.tuna.tsinghua.edu.cn/debian-security'
-		[[ "${ARCH}" == "amd64" ]] &&
-			UBUNTU_MIRROR='mirrors.tuna.tsinghua.edu.cn/ubuntu/' ||
-			UBUNTU_MIRROR='mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/'
-	fi
-
-	if [[ $DOWNLOAD_MIRROR == "bfsu" ]]; then
-		DEBIAN_MIRROR='mirrors.bfsu.edu.cn/debian'
-		DEBIAN_SECURTY='mirrors.bfsu.edu.cn/debian-security'
-		[[ "${ARCH}" == "amd64" ]] &&
-			UBUNTU_MIRROR='mirrors.bfsu.edu.cn/ubuntu/' ||
-			UBUNTU_MIRROR='mirrors.bfsu.edu.cn/ubuntu-ports/'
-	fi
-
 	[[ -z $DISABLE_IPV6 ]] && DISABLE_IPV6="true"
 
 	# For (late) user override.
-	# Notice: it is too late to define hook functions or add extensions in lib.config, since the extension initialization already ran by now.
-	#         in case the user tries to use them in lib.config, hopefully they'll be detected as "wishful hooking" and the user will be wrn'ed.
+	# Notice:
+	#  it is too late to define hook functions or add extensions
+	#  in lib.config, since the extension initialization already ran by now.
+	#  in case the user tries to use them in lib.config, hopefully they'll be
+	#  detected as "wishful hooking" and the user will be wrn'ed.
 	if [[ -f $USERPATCHES_PATH/lib.config ]]; then
 		display_alert "Using user configuration override" "$USERPATCHES_PATH/lib.config" "info"
 		source "$USERPATCHES_PATH"/lib.config
 	fi
 
-	call_extension_method "user_config" << 'USER_CONFIG'
-*Invoke function with user override*
-Allows for overriding configuration values set anywhere else.
-It is called after sourcing the `lib.config` file if it exists,
-but before assembling any package lists.
-USER_CONFIG
-
-	call_extension_method "extension_prepare_config" << 'EXTENSION_PREPARE_CONFIG'
-*allow extensions to prepare their own config, after user config is done*
-Implementors should preserve variable values pre-set, but can default values an/or validate them.
-This runs *after* user_config. Don't change anything not coming from other variables or meant to be configured by the user.
-EXTENSION_PREPARE_CONFIG
-
-	# apt-cacher-ng mirror configurarion
-	if [[ $DISTRIBUTION == Ubuntu ]]; then
-		APT_MIRROR=$UBUNTU_MIRROR
-	else
-		APT_MIRROR=$DEBIAN_MIRROR
-	fi
-
-	[[ -n $APT_PROXY_ADDR ]] && display_alert "Using custom apt-cacher-ng address" "$APT_PROXY_ADDR" "info"
+	call_extension_method "user_config" <<-'USER_CONFIG'
+		*Invoke function with user override*
+		Allows for overriding configuration values set anywhere else.
+		It is called after sourcing the `lib.config` file if it exists,
+		but before assembling any package lists.
+		USER_CONFIG
 
 	# Build final package list after possible override
 	PACKAGE_LIST="$PACKAGE_LIST $PACKAGE_LIST_RELEASE $PACKAGE_LIST_ADDITIONAL"
@@ -461,4 +479,5 @@ POST_AGGREGATE_PACKAGES
 		CPU configuration: $CPUMIN - $CPUMAX with $GOVERNOR
 	EOF
 
+fi # ! chroot
 }

@@ -1,17 +1,6 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-#
-# build_only_value_for_kernel_only_build()
-#
-# This function provides the list of task names for a kernel package only build.
-#
-# In case of future updates, please review and maintain this list of task names.
-#
-build_only_value_for_kernel_only_build() {
-	echo "u-boot,kernel,armbian-config,armbian-zsh,plymouth-theme-armbian,armbian-firmware,armbian-bsp"
-	return 0
-}
 
 build_get_boot_sources() {
 	if [[ -n $BOOTSOURCE ]]; then
@@ -133,15 +122,10 @@ build_chroot() {
 }
 
 build_bootstrap() {
-	# These two keys are necessary for backward compatibility with logic
-	# https://github.com/armbian/scripts/tree/master/.github/workflows scripts.
-	# They need to be removed when the need disappears there.
-	if [[ $KERNEL_ONLY != yes ]]; then
-		[[ $BSP_BUILD != yes ]] && debootstrap_ng
-	fi
+	debootstrap_ng
 }
 
-#################################################################################################################################
+################################################################################
 #
 # build_main()
 #
@@ -149,9 +133,10 @@ build_bootstrap() {
 # Ensures that any build pre-requisite is met.
 #
 # BUILD_ONLY: optional comma separated list of artifacts to build only.
-#             If this list is empty or not set, then all build tasks will be performed.
-#             The following build task names are supported for filtering build tasks:
-#               u-boot, kernel, armbian-config, armbian-zsh, plymouth-theme-armbian, armbian-firmware, armbian-bsp, chroot, bootstrap
+#      If this list is empty or not set, then all build tasks will be performed.
+#      The following build task names are supported for filtering build tasks:
+#      u-boot, kernel, armbian-config, armbian-zsh, plymouth-theme-armbian,
+#      armbian-firmware, armbian-bsp, chroot, bootstrap
 #
 # Note: The list of all valid BUILD_ONLY task names is to be maintained
 #       in function build_validate_buildOnly() above as local variable _all_valid_buildOnly.
@@ -168,34 +153,34 @@ build_main() {
 
 	[[ $CLEAN_LEVEL == *sources* ]] && cleaning "sources"
 
-	# fetch_from_repo <url> <dir> <ref> <subdir_flag>
+	for option in $(tr ',' ' ' <<< "$CLEAN_LEVEL"); do
+		[[ $option != sources ]] && cleaning "$option"
+	done
 
-	# ignore updates help on building all images - for internal purposes
-	if [[ $IGNORE_UPDATES != yes ]]; then
-		build_task_is_enabled "u-boot" && {
-			 build_get_boot_sources
+	build_task_is_enabled "chroot" && build_chroot
 
-			call_extension_method "fetch_sources_tools" <<- 'FETCH_SOURCES_TOOLS'
-			*fetch host-side sources needed for tools and build*
-			Run early to fetch_from_repo or otherwise obtain sources for needed tools.
-			FETCH_SOURCES_TOOLS
+	build_task_is_enabled "u-boot" && {
+		build_get_boot_sources
 
-			call_extension_method "build_host_tools" <<- 'BUILD_HOST_TOOLS'
-			*build needed tools for the build, host-side*
-			After sources are fetched, build host-side tools needed for the build.
-			BUILD_HOST_TOOLS
-		}
+		call_extension_method "fetch_sources_tools" <<- 'FETCH_SOURCES_TOOLS'
+		*fetch host-side sources needed for tools and build*
+		Run early to fetch_from_repo or otherwise obtain sources for needed tools.
+		FETCH_SOURCES_TOOLS
 
-		build_task_is_enabled "kernel" && build_get_kernel_sources
+		call_extension_method "build_host_tools" <<- 'BUILD_HOST_TOOLS'
+		*build needed tools for the build, host-side*
+		After sources are fetched, build host-side tools needed for the build.
+		BUILD_HOST_TOOLS
 
-		for option in $(tr ',' ' ' <<< "$CLEAN_LEVEL"); do
-			[[ $option != sources ]] && cleaning "$option"
-		done
-	fi
+		build_uboot
+	}
 
-	build_task_is_enabled "u-boot" && build_uboot
+	build_task_is_enabled "kernel" && {
 
-	build_task_is_enabled "kernel" && build_kernel
+		build_get_kernel_sources
+
+		build_kernel
+	}
 
 	build_task_is_enabled "armbian-config" && build_armbian-config
 
@@ -212,14 +197,6 @@ build_main() {
 	build_task_is_enabled "armbian-desktop" && build_armbian-desktop
 
 	build_task_is_enabled "armbian-bsp-desktop" && build_armbian-bsp-desktop
-
-	# skip image creation if exists. useful for CI when making a lot of images
-	if [ "$IMAGE_PRESENT" == yes ] && ls "${FINALDEST}/${VENDOR}_${REVISION}_${BOARD^}_${RELEASE}_${BRANCH}_${VER/-$LINUXFAMILY/}${DESKTOP_ENVIRONMENT:+_$DESKTOP_ENVIRONMENT}"*.xz 1> /dev/null 2>&1; then
-		display_alert "Skipping image creation" "image already made - IMAGE_PRESENT is set" "wrn"
-		exit
-	fi
-
-	build_task_is_enabled "chroot" && build_chroot
 
 	build_task_is_enabled "bootstrap" && build_bootstrap
 
@@ -252,15 +229,4 @@ $([[ -n $DESKTOP_APT_FLAGS_SELECTED ]] && echo "DESKTOP_APT_FLAGS_SELECTED=\"${D
 $([[ -n $COMPRESS_OUTPUTIMAGE ]] && echo "COMPRESS_OUTPUTIMAGE=${COMPRESS_OUTPUTIMAGE} ")\
 " "ext"
 
-}
-
-################################################################
-#
-# do_default()
-#
-# @DEPRECATED - use build_main() instead.
-# This function is still there for backward compatibility only.
-#
-do_default() {
-	build_main
 }

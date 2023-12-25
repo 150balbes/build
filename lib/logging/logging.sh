@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
-#--------------------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # Let's have unique way of displaying alerts
-#--------------------------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 display_alert() {
-	# log function parameters to install.log
-	[[ -n "${DEST}" ]] && echo "Displaying message: $@" >> "${DEST}"/${LOG_SUBPATH}/output.log
+	# log function parameters to separate file.log
+	if [[ -n "${LOG_OUTPUT_FILE}" ]]; then
+		TARGET_LOG="${LOG_OUTPUT_FILE}"
+	elif [[ -n "${DEST}" ]]; then
+		TARGET_LOG="${DEST}"/${LOG_SUBPATH}/output.log
+	else
+		TARGET_LOG="/dev/null"
+	fi
 
 	local tmp=""
 	[[ -n $2 ]] && tmp="[\e[0;33m $2 \x1B[0m]"
@@ -12,22 +18,32 @@ display_alert() {
 	case $3 in
 		err)
 			echo -e "[\e[0;31m error \x1B[0m] $1 $tmp"
+			echo "[ error ] $1 $2" >> "$TARGET_LOG"
 			;;
 
 		wrn)
 			echo -e "[\e[0;35m warn \x1B[0m] $1 $tmp"
+			echo "[ warn ] $1 $2" >> "$TARGET_LOG"
 			;;
 
 		ext)
 			echo -e "[\e[0;32m o.k. \x1B[0m] \e[1;32m$1\x1B[0m $tmp"
+			echo "[ o.k. ] $1 $2" >> "$TARGET_LOG"
 			;;
 
 		info)
-			echo -e "[\e[0;32m o.k. \x1B[0m] $1 $tmp"
+			echo -e "[\e[0;32m info \x1B[0m] $1 $tmp"
+			echo "[ info ] $1 $2" >> "$TARGET_LOG"
+			;;
+
+		line)
+			echo -e "  $1 \e[0;33m$2\x1B[0m"
+			echo -e "  $1 $2" >> "$TARGET_LOG"
 			;;
 
 		*)
 			echo -e "[\e[0;32m .... \x1B[0m] $1 $tmp"
+			echo "[ .... ] $1 $2" >> "$TARGET_LOG"
 			;;
 	esac
 }

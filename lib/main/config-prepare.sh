@@ -14,11 +14,11 @@ list_of_bsp_desktop_packages() {
 # Print a list of building all valid packages in the chroot environment
 list_of_building_all_valid_in_chroot() {
 	local listfiles=$(
-		[[ -d "${USERPATCHES_PATH}"/packages/extras-buildpkgs ]] && {
-			find "${USERPATCHES_PATH}"/packages/extras-buildpkgs/ \
+		[[ -d "${USERPATCHES_PATH}"/packages/deb-build ]] && {
+			find "${USERPATCHES_PATH}"/packages/deb-build/ \
 				-mindepth 1 -maxdepth 1 -type d
 		}
-		find "${SRC}"/packages/extras-buildpkgs/ \
+		find "${SRC}"/packages/deb-build/ \
 			-mindepth 1 -maxdepth 1 -type d
 	)
 	local list_name=""
@@ -44,8 +44,6 @@ function prepare_and_config_main_build_single() {
 	else
 		DEST="${SRC}"/output
 	fi
-
-	interactive_config_prepare_terminal
 
 	# Warnings mitigation
 	[[ -z $LANGUAGE ]] && export LANGUAGE="en_US:en"      # set to english if not set
@@ -154,23 +152,6 @@ function prepare_and_config_main_build_single() {
 		REPOSITORY_INSTALL="$(list_of_main_packages)${BUILD_DESKTOP:+,armbian-desktop,armbian-bsp-desktop}"
 
 	do_main_configuration
-
-	# optimize build time with 100% CPU usage
-	CPUS=$(grep -c 'processor' /proc/cpuinfo)
-	if [[ $USEALLCORES != no ]]; then
-
-		CTHREADS="-j$((CPUS + CPUS / 2))"
-
-	else
-
-		CTHREADS="-j1"
-
-	fi
-
-	call_extension_method "post_determine_cthreads" "config_post_determine_cthreads" << 'POST_DETERMINE_CTHREADS'
-*give config a chance modify CTHREADS programatically. A build server may work better with hyperthreads-1 for example.*
-Called early, before any compilation work starts.
-POST_DETERMINE_CTHREADS
 
 	if [[ "$BETA" == "yes" ]]; then
 		IMAGE_TYPE=nightly

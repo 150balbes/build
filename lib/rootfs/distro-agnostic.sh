@@ -459,7 +459,9 @@ FAMILY_TWEAKS
 	[[ -n $ASOUND_STATE ]] && cp "${SRC}/packages/blobs/asound.state/${ASOUND_STATE}" "${SDCARD}"/var/lib/alsa/asound.state
 
 	# save initial armbian-release state
-	cp "${SDCARD}"/etc/armbian-release "${SDCARD}"/etc/armbian-image-release
+	if [ -f "${SDCARD}"/etc/armbian-release ]; then
+		cp "${SDCARD}"/etc/armbian-release "${SDCARD}"/etc/armbian-image-release
+	fi
 
 	# DNS fix. package resolvconf is not available everywhere
 	if [ -d "${SDCARD}"/etc/resolvconf/resolv.conf.d ] && [ -n "$NAMESERVER" ]; then

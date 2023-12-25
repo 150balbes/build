@@ -67,10 +67,8 @@ waiter_local_git() {
 
 	# Required variables cannot be empty.
 	for var in url name dir branch; do
-		[ "${var#*=}" == "" ] && exit_with_error "Error in configuration"
+		[ -v ${var} ] || exit_with_error "Error: <${var}> in configuration"
 	done
-
-	local reachability
 
 	# The 'offline' variable must always be set to 'true' or 'false'
 	if [ "$OFFLINE_WORK" == "yes" ]; then
@@ -83,7 +81,13 @@ waiter_local_git() {
 	mkdir -p $work_dir
 	cd $work_dir || exit_with_error
 
-	display_alert "Checking git sources" "$dir $url$name/$branch" "info"
+	display_alert "Checking git sources" "$dir $url $name/$branch" "info"
+
+	if [ "$(git rev-parse --git-dir 2> /dev/null)" == ".git" ] &&
+	   [ "$url" != "$(git remote get-url $name)" ]; then
+		display_alert "Remote URL does not match, removing existing local copy"
+		rm -rf .git ./*
+	fi
 
 	if [ "$(git rev-parse --git-dir 2> /dev/null)" != ".git" ]; then
 		git init -q .
@@ -127,6 +131,10 @@ waiter_local_git() {
 
 	if [ "$name" != "$(git remote show | grep $name)" ]; then
 		git remote add -t $branch $name $url
+	else
+		if [ ! -f ".git/refs/remotes/$name/$branch" ]; then
+			git remote set-branches --add $name $branch
+		fi
 	fi
 
 	if ! $offline; then
@@ -140,7 +148,7 @@ waiter_local_git() {
 	# This serves as a check of the reachability of the extraction.
 	# We do not use variables that characterize the current state of the git,
 	# such as `HEAD` and `FETCH_HEAD`.
-	reachability=false
+	local reachability=false
 	for var in obj tag commit branch; do
 		eval pval=\$$var
 
@@ -285,15 +293,15 @@ fetch_from_repo() {
 		# remote was updated, fetch and check out updates
 		display_alert "Fetching updates"
 		case $ref_type in
-			branch) improved_git fetch --depth 200 origin "${ref_name}" ;;
-			tag) improved_git fetch --depth 200 origin tags/"${ref_name}" ;;
-			head) improved_git fetch --depth 200 origin HEAD ;;
+			branch) improved_git fetch --depth 1 origin "${ref_name}" ;;
+			tag) improved_git fetch --depth 1 origin tags/"${ref_name}" ;;
+			head) improved_git fetch --depth 1 origin HEAD ;;
 		esac
 
 		# commit type needs support for older git servers that doesn't support fetching id directly
 		if [[ $ref_type == commit ]]; then
 
-			improved_git fetch --depth 200 origin "${ref_name}"
+			improved_git fetch --depth 1 origin "${ref_name}"
 
 			# cover old type
 			if [[ $? -ne 0 ]]; then

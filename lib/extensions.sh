@@ -308,7 +308,8 @@ write_hook_point_metadata() {
 	echo "${main_hook_point_name}" >> "${EXTENSION_MANAGER_TMP_DIR}/hook_point_calls.txt"
 }
 
-# Helper function, to get clean "stack traces" that do not include the hook/extension infrastructure code.
+# Helper function, to get clean "stack traces" that do not include
+# the hook/extension infrastructure code.
 get_extension_hook_stracktrace() {
 	local sources_str="$1" # Give this ${BASH_SOURCE[*]} - expanded
 	local lines_str="$2"   # And this # Give this ${BASH_LINENO[*]} - expanded
@@ -317,7 +318,8 @@ get_extension_hook_stracktrace() {
 	IFS=' ' read -r -a lines <<< "${lines_str}"
 	for index in "${!sources[@]}"; do
 		local source="${sources[index]}" line="${lines[((index - 1))]}"
-		# skip extension infrastructure sources, these only pollute the trace and add no insight to users
+		# skip extension infrastructure sources, these only pollute
+		# the trace and add no insight to users
 		[[ ${source} == */.tmp/extension_function_definition.sh ]] && continue
 		[[ ${source} == *lib/extensions.sh ]] && continue
 		[[ ${source} == */compile.sh ]] && continue
@@ -326,7 +328,7 @@ get_extension_hook_stracktrace() {
 		# remove 'lib/'. hope this is not too confusing.
 		source="${source#"lib/"}"
 		# add to the list
-		arrow="$([[ "$final_stack" != "" ]] && echo "-> ")"
+		arrow="$([[ "$final_stack" != "" ]] && echo "->\n")"
 		final_stack="${source}:${line} ${arrow} ${final_stack} "
 	done
 	# output the result, no newline
@@ -357,7 +359,8 @@ enable_extension() {
 
 	# if LOG_ENABLE_EXTENSION, output useful stack, so user can figure out which extensions are being added where
 	[[ "${LOG_ENABLE_EXTENSION}" == "yes" ]] &&
-		display_alert "Extension being added" "${extension_name} :: added by ${stacktrace}" ""
+		display_alert "Extension added" "${extension_name}:" ""
+		display_alert "${stacktrace}" "" "line"
 
 	# first a check, has the extension manager already initialized? then it is too late to enable_extension(). bail.
 	if [[ ${initialize_extension_manager_counter} -gt 0 ]]; then

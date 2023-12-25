@@ -120,8 +120,10 @@ compile_uboot() {
 		cross_compile="CROSS_COMPILE=$CCACHE $UBOOT_COMPILER"
 		[[ -n $UBOOT_TOOLCHAIN2 ]] && cross_compile="ARMBIAN=foe" # empty parameter is not allowed
 
+		[[ -z "${CRUSTCONFIG}" ]] && NOTSCP='env SCP=/dev/null'
 		echo -e "\n\t== u-boot make $target_make ==\n" >> "${DEST}"/${LOG_SUBPATH}/compilation.log
 		eval CCACHE_BASEDIR="$(pwd)" env PATH="${toolchain}:${toolchain2}:${PATH}" \
+			$NOTSCP \
 			'make $target_make $CTHREADS \
 			"${cross_compile}"' \
 			${PROGRESS_LOG_TO_FILE:+' | tee -a "${DEST}"/${LOG_SUBPATH}/compilation.log'} \

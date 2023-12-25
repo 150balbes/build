@@ -180,7 +180,7 @@ dtb_dir="debian/dtbtmp"
 packagename=linux-image-"$NAME_EXTENSION"
 kernel_headers_packagename=linux-headers-"$NAME_EXTENSION"
 
-libc_headers_packagename=linux-libc-dev-"$NAME_EXTENSION"
+libc_headers_packagename=linux-libc-dev
 dbg_packagename=$packagename-dbg
 
 if [ "$ARCH" = "um" ]; then
