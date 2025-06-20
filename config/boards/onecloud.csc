@@ -1,8 +1,9 @@
 # Amlogic S805 quad core 1GB RAM SoC GBE
 BOARD_NAME="OneCloud"
 BOARDFAMILY="meson8b"
-KERNEL_TARGET="current,edge"
-
+BOARD_MAINTAINER="hzyitc"
+KERNEL_TARGET="current"
+KERNEL_TEST_TARGET="current"
 BOOTCONFIG="none"
 BOOTSCRIPT="boot-onecloud.cmd:boot.cmd"
 BOOTENV_FILE="onecloud.txt"
@@ -15,3 +16,7 @@ BOOTFS_TYPE="fat"
 # FIXED_IMAGE_SIZE=7456
 
 BOOT_LOGO=desktop
+
+family_tweaks() {
+	cp $SRC/packages/blobs/splash/armbian-u-boot-24.bmp $SDCARD/boot/boot.bmp
+}

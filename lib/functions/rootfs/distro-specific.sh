@@ -1,73 +1,53 @@
 #!/usr/bin/env bash
-install_distribution_specific() {
+#
+# SPDX-License-Identifier: GPL-2.0
+#
+# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+#
+# This file is a part of the Armbian Build Framework
+# https://github.com/armbian/build/
 
-	display_alert "Applying distribution specific tweaks for" "$RELEASE" "info"
+function install_distribution_specific() {
+	display_alert "Applying distribution specific tweaks for" "${RELEASE:-}" "info"
 
-	# disable broken service
-	# the problem is in default misconfiguration
-	chroot "${SDCARD}" /bin/bash -c "systemctl --no-reload disable smartmontools.service >/dev/null 2>&1"
-	chroot "${SDCARD}" /bin/bash -c "systemctl --no-reload disable smartd.service >/dev/null 2>&1"
+	# disable broken service, the problem is in default misconfiguration
+	disable_systemd_service_sdcard smartmontools.service smartd.service
 
-	# disable hostapd as it needs to be configured
-	chroot "${SDCARD}" /bin/bash -c "systemctl --no-reload disable hostapd.service  >/dev/null 2>&1"
+	if [[ "${DISTRIBUTION}" == "Ubuntu" ]]; then
 
-	case $RELEASE in
+		# by using default lz4 initrd compression leads to corruption, go back to proven method
+		# @TODO: rpardini: this should be a config option (which is always set to zstd ;-D )
+		sed -i "s/^COMPRESS=.*/COMPRESS=gzip/" "${SDCARD}"/etc/initramfs-tools/initramfs.conf
 
-		focal | jammy | kinetic | lunar )
+		run_host_command_logged rm -f "${SDCARD}"/etc/update-motd.d/{10-uname,10-help-text,50-motd-news,80-esm,80-livepatch,90-updates-available,91-release-upgrade,95-hwe-eol}
 
-			# by using default lz4 initrd compression leads to corruption, go back to proven method
-			sed -i "s/^COMPRESS=.*/COMPRESS=gzip/" "${SDCARD}"/etc/initramfs-tools/initramfs.conf
+		# Journal service adjustements
+		sed -i "s/#Storage=.*/Storage=volatile/g" "${SDCARD}"/etc/systemd/journald.conf
+		sed -i "s/#Compress=.*/Compress=yes/g" "${SDCARD}"/etc/systemd/journald.conf
+		sed -i "s/#RateLimitIntervalSec=.*/RateLimitIntervalSec=30s/g" "${SDCARD}"/etc/systemd/journald.conf
+		sed -i "s/#RateLimitBurst=.*/RateLimitBurst=10000/g" "${SDCARD}"/etc/systemd/journald.conf
 
-			rm -f "${SDCARD}"/etc/update-motd.d/{10-uname,10-help-text,50-motd-news,80-esm,80-livepatch,90-updates-available,91-release-upgrade,95-hwe-eol}
+		# disable conflicting services
+		disable_systemd_service_sdcard ondemand.service
 
-			if [ -d "${SDCARD}"/etc/NetworkManager ]; then
-				local RENDERER=NetworkManager
-			else
-				local RENDERER=networkd
-			fi
-
-			# DNS fix
-			if [ -n "$NAMESERVER" ]; then
-				sed -i "s/#DNS=.*/DNS=$NAMESERVER/g" "${SDCARD}"/etc/systemd/resolved.conf
-			fi
-
-			# Journal service adjustements
-			sed -i "s/#Storage=.*/Storage=volatile/g" "${SDCARD}"/etc/systemd/journald.conf
-			sed -i "s/#Compress=.*/Compress=yes/g" "${SDCARD}"/etc/systemd/journald.conf
-			sed -i "s/#RateLimitIntervalSec=.*/RateLimitIntervalSec=30s/g" "${SDCARD}"/etc/systemd/journald.conf
-			sed -i "s/#RateLimitBurst=.*/RateLimitBurst=10000/g" "${SDCARD}"/etc/systemd/journald.conf
-
-			# Chrony temporal fix https://bugs.launchpad.net/ubuntu/+source/chrony/+bug/1878005
-			sed -i '/DAEMON_OPTS=/s/"-F -1"/"-F 0"/' "${SDCARD}"/etc/default/chrony
-
-			# disable conflicting services
-			chroot "${SDCARD}" /bin/bash -c "systemctl --no-reload mask ondemand.service >/dev/null 2>&1"
-
-			;;
-
-	esac
-
-	# configure language and locales
-	display_alert "Configuring locales" "$DEST_LANG" "info"
-	if [[ -f $SDCARD/etc/locale.gen ]]; then
-		[ -n "$DEST_LANG" ] && sed -i "s/^# $DEST_LANG/$DEST_LANG/" $SDCARD/etc/locale.gen
-		sed -i '/ C.UTF-8/s/^# //g' $SDCARD/etc/locale.gen
-		sed -i '/en_US.UTF-8/s/^# //g' $SDCARD/etc/locale.gen
+		# Remove Ubuntu APT spamming
+		install_artifact_deb_chroot "fake-ubuntu-advantage-tools"
+		truncate --size=0 "${SDCARD}"/etc/apt/apt.conf.d/20apt-esm-hook.conf
 	fi
-	eval 'LC_ALL=C LANG=C chroot $SDCARD /bin/bash -c "locale-gen"' ${OUTPUT_VERYSILENT:+' >/dev/null 2>/dev/null'}
-	[ -n "$DEST_LANG" ] && eval 'LC_ALL=C LANG=C chroot $SDCARD /bin/bash -c \
-	"update-locale --reset LANG=$DEST_LANG LANGUAGE=$DEST_LANG LC_ALL=$DEST_LANG"' ${OUTPUT_VERYSILENT:+' >/dev/null 2>/dev/null'}
 
-	# Basic Netplan config. Let NetworkManager/networkd manage all devices on this system
-	[[ -d "${SDCARD}"/etc/netplan ]] && cat <<- EOF > "${SDCARD}"/etc/netplan/armbian-default.yaml
-		network:
-			  version: 2
-			  renderer: $RENDERER
-	EOF
+	# install our base-files package (this replaces the original from Debian/Ubuntu)
+	if [[ "${KEEP_ORIGINAL_OS_RELEASE:-"no"}" != "yes" ]]; then
+		install_artifact_deb_chroot "armbian-base-files" "--allow-downgrades"
+	fi
+
+	# Set DNS server if systemd-resolved is in use
+	if [[ -n "$NAMESERVER" && -f "${SDCARD}"/etc/systemd/resolved.conf ]]; then
+		display_alert "Using systemd-resolved" "for DNS management" "info"
+		# This used to set a default DNS entry from $NAMESERVER into "${SDCARD}"/etc/systemd/resolved.conf.d/00-armbian-default-dns.conf -- no longer; better left to DHCP.
+	fi
 
 	# cleanup motd services and related files
-	chroot "${SDCARD}" /bin/bash -c "systemctl disable motd-news.service >/dev/null 2>&1"
-	chroot "${SDCARD}" /bin/bash -c "systemctl disable motd-news.timer >/dev/null 2>&1"
+	disable_systemd_service_sdcard motd-news.service motd-news.timer
 
 	# remove motd news from motd.ubuntu.com
 	[[ -f "${SDCARD}"/etc/default/motd-news ]] && sed -i "s/^ENABLED=.*/ENABLED=0/" "${SDCARD}"/etc/default/motd-news
@@ -80,111 +60,171 @@ install_distribution_specific() {
 
 	# use list modules INITRAMFS
 	if [ -f "${SRC}"/config/modules/"${MODULES_INITRD}" ]; then
-		display_alert "Use file list modules INITRAMFS" "${MODULES_INITRD}"
+		display_alert "Use file list modules MODULES_INITRD" "${MODULES_INITRD}"
 		sed -i "s/^MODULES=.*/MODULES=list/" "${SDCARD}"/etc/initramfs-tools/initramfs.conf
 		cat "${SRC}"/config/modules/"${MODULES_INITRD}" >> "${SDCARD}"/etc/initramfs-tools/modules
 	fi
 }
 
-# create_sources_list <release> <basedir>
+# create_sources_list_and_deploy_repo_key <when> <release> <basedir>
 #
-# <release>: bullseye|bookworm|sid|focal|jammy|kinetic|lunar
+# <when>: rootfs|image
+# <release>: bullseye|bookworm|sid|focal|jammy|noble|oracular|plucky
 # <basedir>: path to root directory
 #
-create_sources_list() {
-	local release=$1
-	local basedir=$2
-	[[ -z $basedir ]] && exit_with_error "No basedir passed to create_sources_list"
+function create_sources_list_and_deploy_repo_key() {
+	declare when="${1}"
+	declare release="${2}"
+	declare basedir="${3}" # @TODO: rpardini: this is SDCARD in all practical senses. Why not just use SDCARD?
+	[[ -z $basedir ]] && exit_with_error "No basedir passed to create_sources_list_and_deploy_repo_key"
 
+	declare distro=""
+
+	# Drop deboostrap sources leftovers
+	rm -f "${basedir}/etc/apt/sources.list"
+
+	# Add upstream (Debian/Ubuntu) APT repository
 	case $release in
-		buster)
-			cat <<- EOF > "${basedir}"/etc/apt/sources.list
-				deb http://${DEBIAN_MIRROR} $release main contrib non-free
-				#deb-src http://${DEBIAN_MIRROR} $release main contrib non-free
+		buster | bullseye | bookworm | trixie)
+			distro="debian"
 
-				deb http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free
-				#deb-src http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free
+			declare -a suites=("${release}" "${release}-updates")
+			declare -a security_suites=("${release}-security")
+			declare -a components=(main contrib non-free)
 
-				deb http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free
-				#deb-src http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free
+			if [[ "$release" == "buster" ]]; then
+				security_suites=("${release}/updates")
+			else
+			  suites+=("${release}-backports")
+			fi
 
-				deb http://${DEBIAN_SECURTY} ${release}/updates main contrib non-free
-				#deb-src http://${DEBIAN_SECURTY} ${release}/updates main contrib non-free
+			if [[ "$release" != "buster" && "$release" != "bullseye" ]]; then
+			  components+=("non-free-firmware")
+			fi
+
+			cat <<- EOF > "${basedir}/etc/apt/sources.list.d/${distro}.sources"
+			Types: deb
+			URIs: http://${DEBIAN_MIRROR}
+			Suites: ${suites[@]}
+			Components: ${components[@]}
+			Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+			Types: deb
+			URIs: http://${DEBIAN_SECURTY}
+			Suites: ${security_suites[@]}
+			Components: ${components[@]}
+			Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 			EOF
 			;;
 
-		bullseye | bookworm | trixie)
-			cat <<- EOF > "${basedir}"/etc/apt/sources.list
-				deb http://${DEBIAN_MIRROR} $release main contrib non-free
-				#deb-src http://${DEBIAN_MIRROR} $release main contrib non-free
+		sid | unstable)
+			distro="debian"
 
-				deb http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free
-				#deb-src http://${DEBIAN_MIRROR} ${release}-updates main contrib non-free
-
-				deb http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free
-				#deb-src http://${DEBIAN_MIRROR} ${release}-backports main contrib non-free
-
-				deb http://${DEBIAN_SECURTY} ${release}-security main contrib non-free
-				#deb-src http://${DEBIAN_SECURTY} ${release}-security main contrib non-free
+			# sid is permanent unstable development and has no such thing as updates or security
+			cat <<- EOF > "${basedir}/etc/apt/sources.list.d/${distro}.sources"
+			Types: deb
+			URIs: http://${DEBIAN_MIRROR}
+			Suites: ${release}
+			Components: main contrib non-free non-free-firmware
+			Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 			EOF
+
+			# Required for some packages on riscv64.
+			# See: http://lists.debian.org/debian-riscv/2023/07/msg00053.html
+			if [[ "${ARCH}" == riscv64 ]]; then
+				cat <<- EOF >> "${basedir}/etc/apt/sources.list.d/${distro}.sources"
+
+				Types: deb
+				URIs: http://deb.debian.org/debian-ports/
+				Suites: ${release}
+				Components: main
+				Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+				Architectures: riscv64
+				EOF
+			fi
 			;;
 
-		sid) # sid is permanent unstable development and has no such thing as updates or security
-			cat <<- EOF > "${basedir}"/etc/apt/sources.list
-				deb http://${DEBIAN_MIRROR} $release main contrib non-free
-				#deb-src http://${DEBIAN_MIRROR} $release main contrib non-free
-			EOF
-			;;
+		focal | jammy | noble | oracular | plucky)
+			distro="ubuntu"
 
-		focal | jammy | kinetic | lunar)
-			cat <<- EOF > "${basedir}"/etc/apt/sources.list
-				deb http://${UBUNTU_MIRROR} $release main restricted universe multiverse
-				#deb-src http://${UBUNTU_MIRROR} $release main restricted universe multiverse
-
-				deb http://${UBUNTU_MIRROR} ${release}-security main restricted universe multiverse
-				#deb-src http://${UBUNTU_MIRROR} ${release}-security main restricted universe multiverse
-
-				deb http://${UBUNTU_MIRROR} ${release}-updates main restricted universe multiverse
-				#deb-src http://${UBUNTU_MIRROR} ${release}-updates main restricted universe multiverse
-
-				deb http://${UBUNTU_MIRROR} ${release}-backports main restricted universe multiverse
-				#deb-src http://${UBUNTU_MIRROR} ${release}-backports main restricted universe multiverse
+			cat <<- EOF > "${basedir}/etc/apt/sources.list.d/${distro}.sources"
+			Types: deb
+			URIs: http://${UBUNTU_MIRROR}
+			Suites: ${release} ${release}-security ${release}-updates ${release}-backports
+			Components: main restricted universe multiverse
+			Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 			EOF
 			;;
 	esac
 
-	display_alert "Adding Armbian repository and authentication key" "/etc/apt/sources.list.d/armbian.list" "info"
+	# add armbian key
+	display_alert "Adding Armbian repository and authentication key" "${when} :: /etc/apt/sources.list.d/armbian.sources" "info"
+	mkdir -p "${basedir}"/usr/share/keyrings
+	# change to binary form
+	APT_SIGNING_KEY_FILE="/usr/share/keyrings/armbian-archive-keyring.gpg"
+	gpg --dearmor < "${SRC}"/config/armbian.key > "${basedir}${APT_SIGNING_KEY_FILE}"
 
-	# apt-key add is getting deprecated
-	APT_VERSION=$(chroot "${basedir}" /bin/bash -c "apt --version | cut -d\" \" -f2")
-	if linux-version compare "${APT_VERSION}" ge 2.4.1; then
-		# add armbian key
-		mkdir -p "${basedir}"/usr/share/keyrings
-		# change to binary form
-		gpg --dearmor < "${SRC}"/config/armbian.key > "${basedir}"/usr/share/keyrings/armbian.gpg
-		SIGNED_BY="[signed-by=/usr/share/keyrings/armbian.gpg] "
-	else
-		# use old method for compatibility reasons
+	# lets link to the old file as armbian-config uses it and we can't set there to new file
+	# we user force linking as some old caches still exists
+	chroot "${basedir}" /bin/bash -c "ln -fs armbian-archive-keyring.gpg /usr/share/keyrings/armbian.gpg"
+
+	# lets keep old way for old distributions
+	if [[ "${RELEASE}" =~ (focal|bullseye) ]]; then
 		cp "${SRC}"/config/armbian.key "${basedir}"
 		chroot "${basedir}" /bin/bash -c "cat armbian.key | apt-key add - > /dev/null 2>&1"
 	fi
 
+	# Add Armbian APT repository
+	declare -a components=()
+	if [[ "${when}" == "image"* ]]; then # only include the 'main' component when deploying to image (early or late)
+		components+=("main")
+	fi
+	components+=("${RELEASE}-utils")   # utils contains packages Igor picks from other repos
+	components+=("${RELEASE}-desktop") # desktop contains packages Igor picks from other repos
+
 	# stage: add armbian repository and install key
-	if [[ $DOWNLOAD_MIRROR == "china" ]]; then
-		echo "deb ${SIGNED_BY}https://mirrors.tuna.tsinghua.edu.cn/armbian $RELEASE main ${RELEASE}-utils ${RELEASE}-desktop" > "${basedir}"/etc/apt/sources.list.d/armbian.list
+	# armbian_mirror="http://$([[ $BETA == yes ]] && echo "beta" || echo "apt").armbian.com"
+	declare armbian_mirror="apt.armbian.com"
+	if [[ -n $LOCAL_MIRROR ]]; then
+		armbian_mirror="$LOCAL_MIRROR"
+	elif [[ $DOWNLOAD_MIRROR == "china" ]]; then
+		armbian_mirror="mirrors.tuna.tsinghua.edu.cn/armbian"
 	elif [[ $DOWNLOAD_MIRROR == "bfsu" ]]; then
-		echo "deb ${SIGNED_BY}http://mirrors.bfsu.edu.cn/armbian $RELEASE main ${RELEASE}-utils ${RELEASE}-desktop" > "${basedir}"/etc/apt/sources.list.d/armbian.list
-	else
-		echo "deb ${SIGNED_BY}http://"$([[ $BETA == yes ]] && echo "beta" || echo "apt")".armbian.com $RELEASE main ${RELEASE}-utils ${RELEASE}-desktop" > "${basedir}"/etc/apt/sources.list.d/armbian.list
+		armbian_mirror="mirrors.bfsu.edu.cn/armbian"
+	elif [[ $BETA == "yes" ]]; then
+		armbian_mirror="beta.armbian.com"
+	fi
+	cat <<- EOF > "${basedir}"/etc/apt/sources.list.d/armbian.sources
+	Types: deb
+	URIs: http://${armbian_mirror}
+	Suites: $RELEASE
+	Components: ${components[*]}
+	Signed-By: ${APT_SIGNING_KEY_FILE}
+	EOF
+
+	# disable repo if DISTRIBUTION_STATUS==eos, or if SKIP_ARMBIAN_REPO==yes, or if when==image-early.
+	if [[ "${when}" == "image-early" ||
+		"$(cat "${SRC}/config/distributions/${RELEASE}/support")" == "eos" ||
+		"${SKIP_ARMBIAN_REPO}" == "yes" ]]; then
+		display_alert "Disabling Armbian repo" "${ARCH}-${RELEASE} :: skip:${SKIP_ARMBIAN_REPO:-"no"} when:${when}" "info"
+		mv "${SDCARD}"/etc/apt/sources.list.d/armbian.sources "${SDCARD}"/etc/apt/sources.list.d/armbian.sources.disabled
 	fi
 
-	# replace local package server if defined. Suitable for development
-	[[ -n $LOCAL_MIRROR ]] && echo "deb ${SIGNED_BY}http://$LOCAL_MIRROR $RELEASE main ${RELEASE}-utils ${RELEASE}-desktop" > "${basedir}"/etc/apt/sources.list.d/armbian.list
+	declare CUSTOM_REPO_WHEN="${when}"
 
-	# disable repo if SKIP_ARMBIAN_REPO=yes
-	if [[ "${SKIP_ARMBIAN_REPO}" == "yes" ]]; then
-		display_alert "Disabling armbian repo" "${ARCH}-${RELEASE}" "wrn"
-		mv "${SDCARD}"/etc/apt/sources.list.d/armbian.list "${SDCARD}"/etc/apt/sources.list.d/armbian.list.disabled
-	fi
+	# Let user customize
+	call_extension_method "custom_apt_repo" <<- 'CUSTOM_APT_REPO'
+		*customize apt sources.list.d and/or deploy repo keys*
+		Called after core Armbian has finished setting up SDCARD's debian.sources/ubuntu.sources and armbian.sources in /etc/apt/sources.list.d/.
+		If SKIP_ARMBIAN_REPO=yes, armbian.sources.disabled is present instead.
+		The global Armbian GPG key has been deployed to SDCARD's ${APT_SIGNING_KEY_FILE}, de-armored.
+		You can implement this hook to add, remove, or modify sources.list.d entries, and/or deploy additional GPG keys.
+		Important: honor $CUSTOM_REPO_WHEN; if it's ==rootfs, don't add repos/components that carry the .debs produced by armbian/build.
+		Ideally, also don't add any possibly-conflicting repo if `$CUSTOM_REPO_WHEN==image-early`.
+		`$CUSTOM_APT_REPO==image-late` is passed during the very final stages of image building, after all packages were installed/upgraded.
+	CUSTOM_APT_REPO
 
+	unset CUSTOM_REPO_WHEN
+
+	return 0
 }

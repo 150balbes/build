@@ -17,6 +17,15 @@ setenv devnum "0"
 setenv rootdev "/dev/mmcblk${devnum}p1"
 setenv earlycon "off"
 
+# Remember the default u-boot fdtfile
+setenv deffdt_file ${fdtfile}
+
+# Remember the default u-boot fdtdir
+setenv deffdt_dir "${prefix}dtb"
+if test "$fdtdir" = ""; then setenv fdtdir "${deffdt_dir}";fi
+
+setenv vendor "allwinner"
+
 # Print boot source
 itest.b *0x28 == 0x00 && echo "U-boot loaded from SD"
 itest.b *0x28 == 0x01 && echo "U-boot loaded from NAND"
@@ -31,15 +40,45 @@ if test "${devtype}" = "mmc"; then
 	setenv rootdev "/dev/mmcblk${mmc_bootdev}p1"
 fi
 
-echo "Boot script loaded from ${devtype}"
-
 if test -e ${devtype} ${devnum} ${prefix}armbianEnv.txt; then
 	load ${devtype} ${devnum} ${load_addr} ${prefix}armbianEnv.txt
 	env import -t ${load_addr} ${filesize}
 fi
 
-if test "${console}" = "display" || test "${console}" = "both"; then setenv consoleargs "console=ttyS0,115200 console=tty1"; fi
+# Delete the vendor's name from the fdtfile variable and record the result
+# after the file with the environment variables has been read
+if setexpr subfdt sub ${vendor}/ "" ${fdtfile};then
+	setenv fdtfile ${subfdt}
+fi
+
+# In this shell, we can only check the existence of the file.
+# Make a check of reasonable ways to find the dtb file.
+# Set the true value of the paths.
+if test -e ${devtype} ${devnum} "${fdtdir}/${fdtfile}"; then
+	echo "Load fdt: ${fdtdir}/${fdtfile}"
+else
+	echo "The file ${fdtfile} was not found in the path ${fdtdir}"
+	if test -e ${devtype} ${devnum} "${deffdt_dir}/${vendor}/${fdtfile}"; then
+		setenv fdtdir "${deffdt_dir}/${vendor}"
+		echo "Load fdt: ${fdtdir}/${fdtfile}"
+	else
+		if test -e ${devtype} ${devnum} "${deffdt_dir}/${vendor}/${deffdt_file}"; then
+			setenv fdtdir "${deffdt_dir}/${vendor}"
+			setenv fdtfile "${deffdt_file}"
+			echo "Load fdt: ${fdtdir}/${fdtfile}"
+		else
+			if test -e ${devtype} ${devnum} "${deffdt_dir}/${deffdt_file}"; then
+				setenv fdtdir "${deffdt_dir}"
+				setenv fdtfile "${deffdt_file}"
+				echo "Load fdt: ${fdtdir}/${fdtfile}"
+			fi
+		fi
+	fi
+fi
+
+if test "${console}" = "display"; then setenv consoleargs "console=tty1"; fi
 if test "${console}" = "serial"; then setenv consoleargs "console=ttyS0,115200"; fi
+if test "${console}" = "both"; then setenv consoleargs "console=ttyS0,115200 console=tty1"; fi
 if test "${earlycon}" = "on"; then setenv consoleargs "earlycon ${consoleargs}"; fi
 if test "${bootlogo}" = "true"; then
 	setenv consoleargs "splash plymouth.ignore-serial-consoles ${consoleargs}"
@@ -49,19 +88,22 @@ fi
 
 setenv bootargs "root=${rootdev} rootwait rootfstype=${rootfstype} ${consoleargs} hdmi.audio=EDID:0 disp.screen0_output_mode=${disp_mode} consoleblank=0 loglevel=${verbosity} ubootpart=${partuuid} ubootsource=${devtype} usb-storage.quirks=${usbstoragequirks} ${extraargs} ${extraboardargs}"
 
-if test "${disp_mem_reserves}" = "off"; then setenv bootargs "${bootargs} sunxi_ve_mem_reserve=0 sunxi_g2d_mem_reserve=0 sunxi_fb_mem_reserve=16"; fi
-if test "${docker_optimizations}" = "on"; then setenv bootargs "${bootargs} cgroup_enable=memory swapaccount=1"; fi
+if test "${disp_mem_reserves}" = "off"; then
+	setenv bootargs "${bootargs} sunxi_ve_mem_reserve=0 sunxi_g2d_mem_reserve=0 sunxi_fb_mem_reserve=16"
+fi
+
+if test "${docker_optimizations}" = "on"; then setenv bootargs "${bootargs} cgroup_enable=memory"; fi
 
 load ${devtype} ${devnum} ${ramdisk_addr_r} ${prefix}uInitrd
 load ${devtype} ${devnum} ${kernel_addr_r} ${prefix}zImage
 
 if test -e ${devtype} ${devnum} "${prefix}.next"; then
 	echo "Found mainline kernel configuration"
-	load ${devtype} ${devnum} ${fdt_addr_r} ${prefix}dtb/${fdtfile}
+	load ${devtype} ${devnum} ${fdt_addr_r} ${fdtdir}/${fdtfile}
 	fdt addr ${fdt_addr_r}
 	fdt resize 65536
 	for overlay_file in ${overlays}; do
-		if load ${devtype} ${devnum} ${load_addr} ${prefix}dtb/overlay/${overlay_prefix}-${overlay_file}.dtbo; then
+		if load ${devtype} ${devnum} ${load_addr} ${fdtdir}/overlay/${overlay_prefix}-${overlay_file}.dtbo; then
 			echo "Applying kernel provided DT overlay ${overlay_prefix}-${overlay_file}.dtbo"
 			fdt apply ${load_addr} || setenv overlay_error "true"
 		fi
@@ -74,9 +116,10 @@ if test -e ${devtype} ${devnum} "${prefix}.next"; then
 	done
 	if test "${overlay_error}" = "true"; then
 		echo "Error applying DT overlays, restoring original DT"
-		load ${devtype} ${devnum} ${fdt_addr_r} ${prefix}dtb/${fdtfile}
+		load ${devtype} ${devnum} ${fdt_addr_r} ${fdtdir}/${fdtfile}
 	else
-		if load ${devtype} ${devnum} ${load_addr} ${prefix}dtb/overlay/${overlay_prefix}-fixup.scr; then
+		if test -e ${devtype} ${devnum} ${fdtdir}/overlay/${overlay_prefix}-fixup.scr; then
+			load ${devtype} ${devnum} ${load_addr} ${fdtdir}/overlay/${overlay_prefix}-fixup.scr
 			echo "Applying kernel provided DT fixup script (${overlay_prefix}-fixup.scr)"
 			source ${load_addr}
 		fi

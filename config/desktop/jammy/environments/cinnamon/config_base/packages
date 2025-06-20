@@ -28,6 +28,8 @@ evince
 evince-common
 fontconfig
 fontconfig-config
+fonts-noto-cjk
+fonts-ubuntu
 fonts-ubuntu-console
 foomatic-db-compressed-ppds
 gdebi
@@ -78,10 +80,6 @@ nemo-data
 nemo-fileroller
 nemo-font-manager
 nemo-gtkhash
-network-manager-gnome
-network-manager-openvpn
-network-manager-ssh
-network-manager-vpnc
 numix-gtk-theme
 numix-icon-theme
 numix-icon-theme-circle
@@ -128,4 +126,5 @@ xscreensaver
 xsensors
 xserver-xorg
 xserver-xorg-video-fbdev
+xauth
 xwallpaper

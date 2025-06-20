@@ -55,6 +55,7 @@ evince-common
 fontconfig
 fontconfig-config
 fonts-noto-mono
+fonts-ubuntu
 fonts-ubuntu-console
 foomatic-db-compressed-ppds
 gdebi
@@ -82,7 +83,6 @@ hplip
 indicator-printers
 inputattach
 inxi
-kerneloops
 keyutils
 language-pack-gnome-de
 language-pack-gnome-en
@@ -107,13 +107,11 @@ libnotify-bin
 libplank1
 libplank-common
 libproxy1-plugin-gsettings
-libproxy1-plugin-networkmanager
 libu2f-udev
 libwmf0.2-7-gtk
 libxapp1
 libxcursor1
-lightdm
-lightdm-settings
+gdm3
 mesa-utils
 mousepad
 mousetweaks
@@ -122,10 +120,6 @@ nemo-data
 nemo-fileroller
 nemo-font-manager
 nemo-gtkhash
-network-manager-config-connectivity-ubuntu
-network-manager-openvpn
-network-manager-ssh
-network-manager-vpnc
 numix-gtk-theme
 numix-icon-theme
 numix-icon-theme-circle
@@ -145,7 +139,6 @@ profile-sync-daemon
 pulseaudio-module-bluetooth
 redshift
 samba
-slick-greeter
 smbclient
 software-properties-gtk
 spice-vdagent
@@ -188,4 +181,5 @@ xorg-docs-core
 xscreensaver
 xserver-xorg
 xserver-xorg-video-fbdev
+xauth
 xwallpaper

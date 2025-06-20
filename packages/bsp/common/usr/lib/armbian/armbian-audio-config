@@ -7,9 +7,9 @@
 [[ -z $(command -v aplay) ]] && echo "Missing aplay; doing nothing." && exit 0
 
 mixer_cmds() {
-	parm=${4:-on}
-	echo sset "$1" "$2" "$parm"
-	echo sset "$1" "$parm"
+	parm=${3:-on}
+	echo "sset '$1' '$2' '$parm'"
+	echo "sset '$1' '$parm'"
 }
 
 if [ -f "$HOME/.config/sound.conf" ]; then
@@ -156,5 +156,9 @@ else
 		mixer_cmds 'OUT MIXR DAC R1' on
 		mixer_cmds 'Stereo DAC MIXL DAC L1' on
 		mixer_cmds 'Stereo DAC MIXR DAC R1' on
+
+		# Orange Pi 3B
+		mixer_cmds 'Playback Path' 'HP'
+		mixer_cmds 'Capture MIC Path' 'Main Mic'
 	) | amixer -c "$card" --stdin > /dev/null 2>&1; done
 fi

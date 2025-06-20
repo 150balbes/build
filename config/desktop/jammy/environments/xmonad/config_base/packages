@@ -10,7 +10,6 @@ brltty-x11
 cifs-utils
 colord
 compton
-conky-all
 cups
 cups-bsd
 cups-client
@@ -29,14 +28,13 @@ fonts-dejavu-core
 fonts-freefont-ttf
 fonts-guru
 fonts-guru-extra
-fonts-kacst
-fonts-kacst-one
 fonts-khmeros-core
 fonts-liberation
 fonts-nanum
 fonts-opensymbol
 fonts-stix
 fonts-symbola
+fonts-ubuntu
 fonts-ubuntu-console
 foomatic-db-compressed-ppds
 ghostscript-x
@@ -53,7 +51,6 @@ hplip
 indicator-printers
 inputattach
 inxi
-kerneloops
 keyutils
 language-pack-de
 language-pack-en
@@ -76,7 +73,6 @@ libgnome-bluetooth13
 libgsettings-qt1
 libnotify-bin
 libproxy1-plugin-gsettings
-libproxy1-plugin-networkmanager
 libu2f-udev
 libwmf0.2-7-gtk
 libxapp1
@@ -86,8 +82,6 @@ lightdm-gtk-greeter
 lightdm-gtk-greeter-settings
 lightdm-settings
 mousetweaks
-network-manager-openvpn-gnome
-network-manager-vpnc
 nitrogen
 numix-gtk-theme
 openprinting-ppds
@@ -142,6 +136,7 @@ xmobar
 xmonad
 xscreensaver
 xserver-xorg-video-fbdev
+xauth
 xtitle
 xttitle
 xwallpaper
