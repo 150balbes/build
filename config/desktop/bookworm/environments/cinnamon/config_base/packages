@@ -1,4 +1,5 @@
 anacron
+apt-xapian-index
 blueman
 bluez
 bluez-cups
@@ -36,6 +37,7 @@ ghostscript-x
 gir1.2-cinnamondesktop-3.0
 gir1.2-cmenu-3.0
 gir1.2-cvc-1.0
+gnome-disk-utility
 gnome-screenshot
 gnome-disk-utility
 gnome-system-monitor
@@ -78,6 +80,8 @@ openprinting-ppds
 p7zip-full
 pamix
 pasystray
+pavucontrol
+pavumeter
 polkitd
 pkexec
 #printer-driver-all

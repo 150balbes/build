@@ -89,17 +89,13 @@ function create_sources_list_and_deploy_repo_key() {
 			distro="debian"
 
 			declare -a suites=("${release}" "${release}-updates")
-			declare -a security_suites=("${release}-security")
 			declare -a components=(main contrib non-free)
 
-			if [[ "$release" == "buster" ]]; then
-				security_suites=("${release}/updates")
-			else
-			  suites+=("${release}-backports")
-			fi
-
 			if [[ "$release" != "buster" && "$release" != "bullseye" ]]; then
-			  components+=("non-free-firmware")
+				# EOS releases doesn't get security updates
+				declare -a security_suites=("${release}-security")
+				suites+=("${release}-backports")
+				components+=("non-free-firmware")
 			fi
 
 			cat <<- EOF > "${basedir}/etc/apt/sources.list.d/${distro}.sources"
@@ -108,13 +104,18 @@ function create_sources_list_and_deploy_repo_key() {
 			Suites: ${suites[@]}
 			Components: ${components[@]}
 			Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-
-			Types: deb
-			URIs: http://${DEBIAN_SECURTY}
-			Suites: ${security_suites[@]}
-			Components: ${components[@]}
-			Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 			EOF
+
+			if [ ${#security_suites[@]} -gt 0 ]; then
+				echo "" >> "${basedir}/etc/apt/sources.list.d/${distro}.sources" # it breaks if there is no line space in between
+				cat <<- EOF >> "${basedir}/etc/apt/sources.list.d/${distro}.sources"
+				Types: deb
+				URIs: http://${DEBIAN_SECURITY}
+				Suites: ${security_suites[@]}
+				Components: ${components[@]}
+				Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+				EOF
+			fi
 			;;
 
 		sid | unstable)
@@ -162,7 +163,10 @@ function create_sources_list_and_deploy_repo_key() {
 	mkdir -p "${basedir}"/usr/share/keyrings
 	# change to binary form
 	APT_SIGNING_KEY_FILE="/usr/share/keyrings/armbian-archive-keyring.gpg"
-	gpg --dearmor < "${SRC}"/config/armbian.key > "${basedir}${APT_SIGNING_KEY_FILE}"
+	gpg --batch --yes --dearmor < "${SRC}"/config/armbian.key > "${basedir}${APT_SIGNING_KEY_FILE}"
+
+	# deploy the qemu binary, no matter where the rootfs came from (built or cached)
+	deploy_qemu_binary_to_chroot "${basedir}" "${when}" # undeployed at end of this function
 
 	# lets link to the old file as armbian-config uses it and we can't set there to new file
 	# we user force linking as some old caches still exists
@@ -173,6 +177,9 @@ function create_sources_list_and_deploy_repo_key() {
 		cp "${SRC}"/config/armbian.key "${basedir}"
 		chroot "${basedir}" /bin/bash -c "cat armbian.key | apt-key add - > /dev/null 2>&1"
 	fi
+
+	# undeploy the qemu binary from the image; we don't want to ship the host's qemu in the target image
+	undeploy_qemu_binary_from_chroot "${basedir}" "${when}"
 
 	# Add Armbian APT repository
 	declare -a components=()

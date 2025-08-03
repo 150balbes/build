@@ -1,4 +1,5 @@
 anacron
+apt-xapian-index
 at-spi2-core
 colord
 cups

@@ -1,5 +1,6 @@
 anacron
 apt-config-auto-update
+apt-xapian-index
 arandr
 blueman
 bluez

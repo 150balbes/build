@@ -1,5 +1,7 @@
 anacron
 apt-config-auto-update
+apt-xapian-index
+blueman
 blueman
 bluez
 bluez-cups
