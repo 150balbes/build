@@ -1,9 +1,0 @@
---- a/arch/arm64/boot/dts/rockchip/Makefile
-+++ b/arch/arm64/boot/dts/rockchip/Makefile
-@@ -335,4 +335,4 @@
- dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588s-tablet-v10.dtb
- dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588s-tablet-v11.dtb
- 
--subdir-y := $(dts-dirs) overlay
-+#subdir-y := $(dts-dirs) overlay
-
