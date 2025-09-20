@@ -223,11 +223,11 @@ driver_xradio_xr819() {
 	if linux-version compare "${version}" ge 4.19 && [[ "$LINUXFAMILY" == sunxi* ]]; then
 
 		# Attach to specific commit (is branch:master)
-		local xradio_xr819_ver="commit:506fbc323f1c675d037eaf7ee928939394761aee" # Commit date: Dec 6, 2024 (please update when updating commit ref)
+		local xradio_xr819_ver="commit:684a91a3692a964c5886dcf4369874cc7c19c0a4" # Commit date: Aug 7, 2025 (please update when updating commit ref)
 
 		display_alert "Adding" "Wireless drivers for Xradio XR819 chipsets" "info"
 
-		fetch_from_repo "$GITHUB_SOURCE/fifteenhex/xradio" "xradio" "${xradio_xr819_ver}" "yes" # https://github.com/fifteenhex/xradio
+		fetch_from_repo "$GITHUB_SOURCE/igorpecovnik/xradio" "xradio" "${xradio_xr819_ver}" "yes" # Forked from https://github.com/fifteenhex/xradio
 		cd "$kerneldir" || exit
 		rm -rf "$kerneldir/drivers/net/wireless/xradio"
 		mkdir -p "$kerneldir/drivers/net/wireless/xradio/"
@@ -430,7 +430,7 @@ driver_rtl88x2cs() {
 	if linux-version compare "${version}" ge 5.9 && [[ "$LINUXFAMILY" == meson64 ]]; then
 
 		# Attach to specific commit (track branch:tune_for_jethub)
-		local rtl88x2csver='commit:d019d700aaceb74559be2809dd015ce7e6957fb5' # Commit date: May 15, 2025 (please update when updating commit ref)
+		local rtl88x2csver='commit:0ef9ddd619d2a386df90fd7c32b65958b0d675ed' # Commit date: Aug 30, 2025 (please update when updating commit ref)
 
 		display_alert "Adding" "Wireless drivers for Realtek 88x2cs chipsets ${rtl88x2csver}" "info"
 

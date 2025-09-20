@@ -185,6 +185,7 @@ function adaptative_prepare_host_dependencies() {
 		ca-certificates ccache cpio
 		device-tree-compiler dialog dirmngr dosfstools
 		dwarves # dwarves has been replaced by "pahole" and is now a transitional package
+		e2fsprogs
 		flex
 		gawk gnupg gpg
 		imagemagick # required for plymouth: converting images / spinners
@@ -266,7 +267,11 @@ function adaptative_prepare_host_dependencies() {
 
 	if [[ "${wanted_arch}" == "riscv64" || "${wanted_arch}" == "all" ]]; then
 		host_dependencies+=("gcc-riscv64-linux-gnu") # crossbuild-essential-riscv64 is not even available "yet"
-		host_dependencies+=("debian-archive-keyring")
+	fi
+
+	if [[ "${wanted_arch}" == "loong64" ]]; then
+		host_dependencies+=("gcc-loongarch64-linux-gnu") # crossbuild-essential-loongarch64 is not even available "yet"
+		host_dependencies+=("debian-ports-archive-keyring")
 	fi
 
 	if [[ "${wanted_arch}" != "amd64" ]]; then

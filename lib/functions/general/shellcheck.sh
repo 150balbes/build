@@ -49,7 +49,7 @@ function shellcheck_debian_control_scripts() {
 
 function run_tool_shellcheck() {
 	# Default version
-	SHELLCHECK_VERSION=${SHELLCHECK_VERSION:-0.10.0} # https://github.com/koalaman/shellcheck/releases
+	SHELLCHECK_VERSION=${SHELLCHECK_VERSION:-0.11.0} # https://github.com/koalaman/shellcheck/releases
 
 	declare non_cache_dir="/armbian-tools/shellcheck" # To deploy/reuse cached SHELLCHECK in a Docker image.
 
@@ -90,6 +90,11 @@ function run_tool_shellcheck() {
 		*riscv64*)
 			# check https://github.com/koalaman/shellcheck in the future, build might be possible
 			display_alert "No RISC-V riscv64 support for SHELLCHECK" "SHELLCHECK will not run" "wrn"
+			return 0
+			;;
+		*loongarch64*)
+			# check https://github.com/koalaman/shellcheck in the future, build might be possible
+			display_alert "No LoongArch support for SHELLCHECK" "SHELLCHECK will not run" "wrn"
 			return 0
 			;;
 		*)
