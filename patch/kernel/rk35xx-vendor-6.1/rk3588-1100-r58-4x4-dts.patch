@@ -691,7 +691,6 @@ index 000000000..2f6260ed4
 +
 +#include "rk3588-blueberry-r58-4X4.dtsi"
 +#include "rk3588-linux.dtsi"
-+//#include "rk3588-blueberry-r58-4X4-LT6911UXE.dtsi"
 +#include "rk3588-blueberry-r58-4X4-LT6911UXE-1.dtsi"
 +#include "rk3588-blueberry-r58-4X4-LT6911UXE-2.dtsi"
 +#include "rk3588-blueberry-r58-4X4-LT6911UXE-3.dtsi"
@@ -700,6 +699,7 @@ index 000000000..2f6260ed4
 +/ {
 +	model = "RK3588 R58_4X4 Board";
 +	compatible = "rockchip,rk3588-R58-4X4-v10-linux", "rockchip,rk3588";
++	/delete-node/ chosen;
 +	
 +	fan{
 +		compatible = "pwm-fan";
