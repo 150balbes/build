@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Doe <john.doe@somewhere.on.planet>
+Date: Mon, 31 Aug 2026 16:29:17 +0300
+Subject: Patching kernel rk35xx files
+ arch/arm64/boot/dts/rockchip/rk3588-blueberry-r58-4x4.dts
+
+Signed-off-by: John Doe <john.doe@somewhere.on.planet>
+---
+ arch/arm64/boot/dts/rockchip/rk3588-blueberry-r58-4x4.dts | 14 +++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3588-blueberry-r58-4x4.dts b/arch/arm64/boot/dts/rockchip/rk3588-blueberry-r58-4x4.dts
+index b80b1ac1572d..1ab0de54233f 100755
+--- a/arch/arm64/boot/dts/rockchip/rk3588-blueberry-r58-4x4.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3588-blueberry-r58-4x4.dts
+@@ -15,10 +15,16 @@
+ / {
+ 	model = "Mekotronics RK3588 R58 4X4";
+ 	compatible = "rockchip,rk3588-R58-4X4-v10-linux", "rockchip,rk3588";
+ 	/delete-node/ chosen;
+ 
++	aliases {
++		mmc0 = &sdmmc;
++		mmc1 = &sdhci;
++		mmc2 = &sdio;
++	};
++
+ 	fan{
+ 		compatible = "pwm-fan";
+ 		#cooling-cells = <2>;
+ 		pwms = <&pwm5 0 50000 0>;
+ 		cooling-levels = <0 50 100 150 200 255>;
+@@ -117,15 +123,21 @@ backlight_lvds: backlight_lvds {
+ 	};
+ 
+ };
+ 
+ &gpu {
+-	status = "okay";
++//	status = "okay";
++	status = "disabled";
+ 	mali-supply = <&vdd_gpu_s0>;
+ 	mem-supply = <&vdd_gpu_mem_s0>;
+ };
+ 
++&gpu_panthor {
++	mali-supply = <&vdd_gpu_s0>;
++	status = "okay";
++};
++
+ &pwm5 {
+ 	pinctrl-0 = <&pwm5m1_pins>;
+ 	status = "okay";
+ };
+ 
+-- 
+Created with Armbian build tools https://github.com/armbian/build
+
