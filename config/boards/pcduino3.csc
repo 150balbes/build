@@ -1,7 +1,9 @@
 # Allwinner A20 dual core 1Gb SoC
 BOARD_NAME="pcDuino 3"
+BOARD_VENDOR="linksprite"
 BOARDFAMILY="sun7i"
 BOARD_MAINTAINER=""
+INTRODUCED="2013"
 BOOTCONFIG="Linksprite_pcDuino3_defconfig"
 KERNEL_TARGET="current,edge,legacy"
 KERNEL_TEST_TARGET="current"

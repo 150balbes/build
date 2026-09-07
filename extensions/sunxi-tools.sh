@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
+# @description Builds and installs `sunxi-tools` (e.g. `sunxi-fexc`) on the host from the `linux-sunxi/sunxi-tools` Git repo, recompiling only when the commit hash changes. Also adds 32-bit armhf (`gcc-arm-linux-gnueabi`) and OpenRISC (`gcc-or1k-elf`) cross-compilers for Allwinner bootloader and crust builds; those compilers are only needed outside Docker.
 
 # Most sunxi stuff, even if 64-bit, requires 32-bit compiler, add it.
 # This is only used for non-Docker, since the Docker image already has it, since it includes compilers for all architectures.
 function add_host_dependencies__sunxi_add_32_bit_c_compiler() {
+	# Skip cross-compilers that don't exist on non-standard host architectures (e.g., riscv64)
+	if [[ "${host_arch}" == "riscv64" ]]; then
+		display_alert "Skipping sunxi 32-bit compiler" "gcc-arm-linux-gnueabi not available on ${host_arch}" "warn"
+		return 0
+	fi
+
 	display_alert "Adding armhf C compiler to host dependencies" "for sunxi bootloader compile" "debug"
-	declare -g EXTRA_BUILD_DEPS="${EXTRA_BUILD_DEPS} gcc-arm-linux-gnueabi" # @TODO: convert to array later
+	EXTRA_BUILD_DEPS+=("cross-armhf::gcc-arm-linux-gnueabi")
 }
 
 # Install gcc-or1k-elf for crust compilation
 function add_host_dependencies__sunxi_add_or1k_c_compiler() {
 	display_alert "Adding or1k C compiler to host dependencies" "for sunxi bootloader compile" "debug"
-	declare -g EXTRA_BUILD_DEPS="${EXTRA_BUILD_DEPS} gcc-or1k-elf"
+	EXTRA_BUILD_DEPS+=("cross-other::gcc-or1k-elf")
 }
 
 function fetch_sources_tools__sunxi_tools() {

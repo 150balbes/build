@@ -1,6 +1,8 @@
 # Allwinner A10 single core 1Gb SoC
 BOARD_NAME="pcDuino2"
+BOARD_VENDOR="linksprite"
 BOARDFAMILY="sun4i"
 BOARD_MAINTAINER=""
+INTRODUCED="2012"
 BOOTCONFIG="Linksprite_pcDuino_defconfig"
 KERNEL_TARGET="current,edge"

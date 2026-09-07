@@ -1,8 +1,13 @@
 # Rockchip RK3328 quad core 1GB 2 x GBE USB2
 BOARD_NAME="Nanopi R2S"
+BOARD_VENDOR="friendlyelec"
 BOARDFAMILY="rockchip64"
 BOARD_MAINTAINER=""
+INTRODUCED="2020"
 BOOTCONFIG="nanopi-r2s-rk3328_defconfig"
+BOOTBRANCH_BOARD="tag:v2026.04"
+BOOTPATCHDIR="v2026.04"
+BOOT_SCENARIO="binman-atf-mainline"
 KERNEL_TARGET="current,edge"
 KERNEL_TEST_TARGET="current"
 DEFAULT_CONSOLE="serial"

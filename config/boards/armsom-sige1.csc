@@ -1,8 +1,10 @@
 # Rockchip RK3528 quad core 1-8GB SoC GBe eMMC USB3 Wifi Bt
 BOARD_NAME="ArmSoM Sige1"
+BOARD_VENDOR="armsom"
 BOARDFAMILY="rk35xx"
 BOOTCONFIG="hinlink_rk3528_defconfig"
 BOARD_MAINTAINER="amazingfate"
+INTRODUCED="2024"
 KERNEL_TARGET="vendor"
 FULL_DESKTOP="yes"
 BOOT_LOGO="desktop"

@@ -1,0 +1,12 @@
+[Unit]
+Description=Armbian lowmem: Create a swapfile
+Wants=armbian-resize-filesystem.service
+After=armbian-resize-filesystem.service local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/lowmem-mkswap.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

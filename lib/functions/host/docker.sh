@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
@@ -42,6 +42,7 @@ function get_docker_info_once() {
 	if [[ -z "${DOCKER_INFO}" ]]; then
 		declare -g DOCKER_INFO
 		declare -g DOCKER_IN_PATH="no"
+		declare -g DOCKER_IS_PODMAN
 
 		# if "docker" is in the PATH...
 		if [[ -n "$(command -v docker)" ]]; then
@@ -52,6 +53,14 @@ function get_docker_info_once() {
 		# Shenanigans to go around error control & capture output in the same effort.
 		DOCKER_INFO="$({ docker info 2> /dev/null && echo "DOCKER_INFO_OK"; } || true)"
 		declare -g -r DOCKER_INFO="${DOCKER_INFO}" # readonly
+
+		if docker --version | grep -q podman; then
+			DOCKER_IS_PODMAN="yes"
+		# when `docker` is a shim to `podman`, it will report its version as "podman version #.#.#"
+		else
+			DOCKER_IS_PODMAN=""
+		fi
+		declare -g -r DOCKER_IS_PODMAN="${DOCKER_IS_PODMAN}" # readonly
 
 		declare -g DOCKER_INFO_OK="no"
 		if [[ "${DOCKER_INFO}" =~ "DOCKER_INFO_OK" ]]; then
@@ -117,11 +126,21 @@ function cli_handle_docker() {
 function docker_cli_prepare() {
 	# @TODO: Make sure we can access docker, on Linux; gotta be part of 'docker' group: grep -q "$(whoami)" <(getent group docker)
 
-	declare -g DOCKER_ARMBIAN_INITIAL_IMAGE_TAG="armbian.local.only/armbian-build:initial"
-	# declare -g DOCKER_ARMBIAN_BASE_IMAGE="${DOCKER_ARMBIAN_BASE_IMAGE:-"debian:trixie"}"
-	# declare -g DOCKER_ARMBIAN_BASE_IMAGE="${DOCKER_ARMBIAN_BASE_IMAGE:-"debian:bookworm"}"
-	# declare -g DOCKER_ARMBIAN_BASE_IMAGE="${DOCKER_ARMBIAN_BASE_IMAGE:-"debian:sid"}"
-	declare -g DOCKER_ARMBIAN_BASE_IMAGE="${DOCKER_ARMBIAN_BASE_IMAGE:-"ubuntu:noble"}"
+	# Unique tag per build to avoid collisions when multiple runners build in parallel on
+	# the same host under different users (shared Docker daemon, separate ${SRC} trees).
+	declare build_suffix="${ARMBIAN_BUILD_UUID:-$(uuidgen 2> /dev/null)}"
+	# Hash the UUID and take 8 hex chars, instead of its first 8 raw chars: when
+	# uuidgen was unavailable, ARMBIAN_BUILD_UUID is the "no-uuidgen-yet-<RANDOM>-..."
+	# fallback whose first 8 chars are a constant "no-uuidg", so every parallel build
+	# would share one tag and collide. Hashing folds in the per-build RANDOM while
+	# staying deterministic within this build. Add local entropy only if there is no
+	# UUID at all (e.g. docker.sh run standalone before deps are installed).
+	[[ -z "${build_suffix}" ]] && build_suffix="${EPOCHREALTIME:-$(date +%s%N)}-$$-${RANDOM}${RANDOM}"
+	build_suffix="$(printf '%s' "${build_suffix}" | sha256sum 2> /dev/null | cut -c1-8)"
+	[[ -z "${build_suffix}" ]] && build_suffix="$(printf '%08x' "$$")" # no sha256sum: PID hex
+	declare -g DOCKER_ARMBIAN_LOCAL_IMAGE_REPO="armbian.local.only/armbian-build"
+	declare -g DOCKER_ARMBIAN_INITIAL_IMAGE_TAG="${DOCKER_ARMBIAN_LOCAL_IMAGE_REPO}:${build_suffix}"
+	declare -g DOCKER_ARMBIAN_BASE_IMAGE="${DOCKER_ARMBIAN_BASE_IMAGE:-"debian:trixie"}"
 	declare -g DOCKER_ARMBIAN_TARGET_PATH="${DOCKER_ARMBIAN_TARGET_PATH:-"/armbian"}"
 
 	declare wanted_os_tag="${DOCKER_ARMBIAN_BASE_IMAGE%%:*}"
@@ -145,29 +164,52 @@ function docker_cli_prepare() {
 	fi
 
 	#############################################################################################################
+	# Optionally clean up old Docker images to free disk space. Off by
+	# default — set DOCKER_PRUNE=yes to opt in.
+	#
+	# The cleanup enumerates `docker images` and calls `docker rmi` on
+	# "old" ones. On hosts where several build invocations share one
+	# dockerd (the usual setup when multiple self-hosted GH Actions
+	# runners live on the same machine) two concurrent invocations
+	# race: runner A's cleanup can rmi an image runner B just
+	# committed between `Successfully built <sha>` and the daemon
+	# writing the imagedb digest file, surfacing as:
+	#   failed to get digest sha256:…: open …/imagedb/content/sha256/…:
+	#   no such file or directory
+	# which aborts runner B's build. Default-off keeps shared-daemon
+	# setups safe; single-host users who want automatic reclaim set
+	# DOCKER_PRUNE=yes and either accept the race risk or run builds
+	# serially.
+	if [[ "${DOCKER_PRUNE:-no}" == "yes" ]]; then
+		docker_cleanup_old_images
+	else
+		display_alert "Skipping Docker image cleanup" "set DOCKER_PRUNE=yes to enable" "debug"
+	fi
+
+	#############################################################################################################
 	# Detect some docker info; use cached.
 	get_docker_info_once
 
-	DOCKER_SERVER_VERSION="$(echo "${DOCKER_INFO}" | grep -i -e "Server Version:" | cut -d ":" -f 2 | xargs echo -n)"
+	DOCKER_SERVER_VERSION="$(grep -i -e "Server Version:" <<< "${DOCKER_INFO}" | cut -d ":" -f 2 | xargs echo -n)"
 	display_alert "Docker Server version" "${DOCKER_SERVER_VERSION}" "debug"
 
-	DOCKER_SERVER_KERNEL_VERSION="$(echo "${DOCKER_INFO}" | grep -i -e "Kernel Version:" | cut -d ":" -f 2 | xargs echo -n)"
+	DOCKER_SERVER_KERNEL_VERSION="$(grep -i -e "Kernel Version:" <<< "${DOCKER_INFO}" | cut -d ":" -f 2 | xargs echo -n)"
 	display_alert "Docker Server Kernel version" "${DOCKER_SERVER_KERNEL_VERSION}" "debug"
 
-	DOCKER_SERVER_TOTAL_RAM="$(echo "${DOCKER_INFO}" | grep -i -e "Total memory:" | cut -d ":" -f 2 | xargs echo -n)"
+	DOCKER_SERVER_TOTAL_RAM="$(grep -i -e "Total memory:" <<< "${DOCKER_INFO}" | cut -d ":" -f 2 | xargs echo -n)"
 	display_alert "Docker Server Total RAM" "${DOCKER_SERVER_TOTAL_RAM}" "debug"
 
-	DOCKER_SERVER_CPUS="$(echo "${DOCKER_INFO}" | grep -i -e "CPUs:" | cut -d ":" -f 2 | xargs echo -n)"
+	DOCKER_SERVER_CPUS="$(grep -i -e "CPUs:" <<< "${DOCKER_INFO}" | cut -d ":" -f 2 | xargs echo -n)"
 	display_alert "Docker Server CPUs" "${DOCKER_SERVER_CPUS}" "debug"
 
-	DOCKER_SERVER_OS="$(echo "${DOCKER_INFO}" | grep -i -e "Operating System:" | cut -d ":" -f 2 | xargs echo -n)"
+	DOCKER_SERVER_OS="$(grep -i -e "Operating System:" <<< "${DOCKER_INFO}" | cut -d ":" -f 2 | xargs echo -n)"
 	display_alert "Docker Server OS" "${DOCKER_SERVER_OS}" "debug"
 
 	declare -g DOCKER_ARMBIAN_HOST_OS_UNAME
 	DOCKER_ARMBIAN_HOST_OS_UNAME="$(uname)"
 	display_alert "Local uname" "${DOCKER_ARMBIAN_HOST_OS_UNAME}" "debug"
 
-	DOCKER_BUILDX_VERSION="$(echo "${DOCKER_INFO}" | grep -i -e "buildx:" | cut -d ":" -f 2 | xargs echo -n)"
+	DOCKER_BUILDX_VERSION="$(grep -i -e "buildx:" <<< "${DOCKER_INFO}" | cut -d ":" -f 2 | xargs echo -n)"
 	display_alert "Docker Buildx version" "${DOCKER_BUILDX_VERSION}" "debug"
 
 	declare -g DOCKER_HAS_BUILDX=no
@@ -178,7 +220,7 @@ function docker_cli_prepare() {
 	fi
 	display_alert "Docker has buildx?" "${DOCKER_HAS_BUILDX}" "debug"
 
-	DOCKER_SERVER_NAME_HOST="$(echo "${DOCKER_INFO}" | grep -i -e "name:" | cut -d ":" -f 2 | xargs echo -n)"
+	DOCKER_SERVER_NAME_HOST="$(grep -im1 -e "^ *Name:" <<< "${DOCKER_INFO}" | cut -d ":" -f 2 | xargs echo -n)"
 	display_alert "Docker Server Hostname" "${DOCKER_SERVER_NAME_HOST}" "debug"
 
 	# Gymnastics: under Darwin, Docker Desktop and Rancher Desktop in dockerd mode behave differently.
@@ -210,6 +252,57 @@ function docker_cli_prepare() {
 
 	# Info summary message. Thank you, GitHub Co-pilot!
 	display_alert "Docker info" "Docker ${DOCKER_SERVER_VERSION} Kernel:${DOCKER_SERVER_KERNEL_VERSION} RAM:${DOCKER_SERVER_TOTAL_RAM} CPUs:${DOCKER_SERVER_CPUS} OS:'${DOCKER_SERVER_OS}' hostname '${DOCKER_SERVER_NAME_HOST}' under '${DOCKER_ARMBIAN_HOST_OS_UNAME}' - buildx:${DOCKER_HAS_BUILDX} - loop-hacks:${DOCKER_SERVER_REQUIRES_LOOP_HACKS} static-loops:${DOCKER_SERVER_USE_STATIC_LOOPS}" "sysinfo"
+}
+
+# Build the per-group "apt-get install" RUN lines for the Dockerfile, so the image
+# is split into multiple, parallel-pullable layers instead of one giant layer.
+# Reads globals: host_dependencies[] (entries possibly "group::package") and BASIC_DEPS[].
+# Arg $1 is the "${c}" comment-gate prefix used to disable the lines (SIMULATE_CLEAN/SKIP_UPDATE).
+# Sets global: DOCKERFILE_APT_INSTALL_RUNS (one RUN instruction per line, no trailing newline).
+function docker_create_dockerfile_apt_install_runs() {
+	declare comment_gate="${1}"
+	declare -A group_pkgs=()
+	declare -A pkg_seen=() # global dedup: a package is installed once, in the first group that lists it
+	declare -a groups_seen=()
+	declare entry group pkg
+
+	for entry in "${host_dependencies[@]}"; do
+		if [[ "${entry}" == *"${HOSTDEP_GROUP_DELIMITER}"* ]]; then
+			group="${entry%%"${HOSTDEP_GROUP_DELIMITER}"*}"
+			pkg="${entry#*"${HOSTDEP_GROUP_DELIMITER}"}"
+		else
+			group="${HOSTDEP_DEFAULT_GROUP}"
+			pkg="${entry}"
+		fi
+		[[ -n "${pkg_seen[${pkg}]:-}" ]] && continue # skip duplicate package (e.g. added by several extensions)
+		pkg_seen[${pkg}]="y"
+		[[ -z "${group_pkgs[${group}]:-}" ]] && groups_seen+=("${group}")
+		group_pkgs[${group}]+="${pkg} "
+	done
+
+	# Preferred layer order: heaviest/most-stable first, so they stay cached longest.
+	# Any unknown (e.g. extension-defined) group is appended after, in first-seen order.
+	# NOTE on ordering: groups that explicitly pre-install a heavy *shared* dependency of a later
+	# group must come first, so that dependency lands in their (smaller, parallel-pullable) layer
+	# instead of inflating the later one. Specifically: 'llvm' before 'clang' (llvm-dev is the bulk
+	# of libclang-dev), and 'native-toolchain' before 'rust' (so gcc stays in native-toolchain).
+	declare -a preferred_order=(llvm clang qemu cross-other cross-amd64 cross-arm64 cross-armhf native-toolchain rust build-tools imaging python fs-tools core)
+	declare -a final_order=()
+	for group in "${preferred_order[@]}"; do
+		[[ -n "${group_pkgs[${group}]:-}" ]] && final_order+=("${group}")
+	done
+	for group in "${groups_seen[@]}"; do
+		[[ " ${final_order[*]} " == *" ${group} "* ]] || final_order+=("${group}")
+	done
+
+	declare runs=""
+	# BASIC_DEPS first, as their own small layer.
+	runs+="${comment_gate}RUN echo \"--> apt group: basic\" && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ${BASIC_DEPS[*]}"$'\n'
+	for group in "${final_order[@]}"; do
+		runs+="${comment_gate}RUN echo \"--> apt group: ${group}\" && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ${group_pkgs[${group}]}"$'\n'
+	done
+
+	declare -g DOCKERFILE_APT_INSTALL_RUNS="${runs%$'\n'}" # strip trailing newline
 }
 
 function docker_cli_prepare_dockerfile() {
@@ -254,8 +347,26 @@ function docker_cli_prepare_dockerfile() {
 	fi
 	declare -a -g host_dependencies=()
 
-	host_release="${DOCKER_WANTED_RELEASE}" early_prepare_host_dependencies # hooks: add_host_dependencies // host_dependencies_known
-	display_alert "Pre-game host dependencies for host_release '${DOCKER_WANTED_RELEASE}'" "${host_dependencies[*]}" "debug"
+	# Get the host architecture for proper cross-compiler selection. Normally this
+	# is the machine running the build, but when generating a Dockerfile for a
+	# foreign-arch image (e.g. a riscv64 build image built under QEMU on an amd64
+	# runner) the caller sets DOCKER_ARMBIAN_HOST_ARCH to the image's target arch,
+	# so the arch-specific host-dependency guards (skipping cross-compilers that
+	# don't exist on riscv64, etc.) match the image being produced, not the runner.
+	declare host_arch
+	if [[ -n "${DOCKER_ARMBIAN_HOST_ARCH:-}" ]]; then
+		host_arch="${DOCKER_ARMBIAN_HOST_ARCH}"
+	elif [[ "${DOCKER_IS_PODMAN}" == "yes" ]]; then
+		host_arch="$(docker version --format '{{.OsArch}}')"
+		host_arch="${host_arch##*/}"
+	else
+		# Resolve the architecture where the Dockerfile will actually build.
+		# This also avoids relying on host tools such as dpkg, which may not
+		# exist on macOS or non-Debian Docker hosts.
+		host_arch="$(docker version --format '{{.Server.Arch}}')"
+	fi
+	host_release="${DOCKER_WANTED_RELEASE}" host_arch="${host_arch}" early_prepare_host_dependencies # hooks: add_host_dependencies // host_dependencies_known
+	display_alert "Pre-game host dependencies for host_release '${DOCKER_WANTED_RELEASE}' host_arch '${host_arch}'" "${host_dependencies[*]}" "debug"
 
 	# This includes apt install equivalent to install_host_dependencies()
 	display_alert "Creating" "Dockerfile; FROM ${DOCKER_ARMBIAN_BASE_IMAGE}" "info"
@@ -275,17 +386,19 @@ function docker_cli_prepare_dockerfile() {
 		c_req=""
 	fi
 
+	# Group the host dependencies by their "group::" prefix into separate apt-get install
+	# RUN instructions, so the resulting image has multiple parallel-pullable layers.
+	docker_create_dockerfile_apt_install_runs "${c}" # sets DOCKERFILE_APT_INSTALL_RUNS
+
 	cat <<- INITIAL_DOCKERFILE > "${SRC}"/Dockerfile
 		${c}# PLEASE DO NOT MODIFY THIS FILE. IT IS AUTOGENERATED AND WILL BE OVERWRITTEN. Please don't build this Dockerfile yourself either. Use Armbian ./compile.sh instead.
 		FROM ${DOCKER_ARMBIAN_BASE_IMAGE}
 		${c}# PLEASE DO NOT MODIFY THIS FILE. IT IS AUTOGENERATED AND WILL BE OVERWRITTEN. Please don't build this Dockerfile yourself either. Use Armbian ./compile.sh instead.
-		${c}RUN echo "--> CACHE MISS IN DOCKERFILE: apt packages." && \\
-		${c} DEBIAN_FRONTEND=noninteractive apt-get -y update && \\
-		${c} DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ${BASIC_DEPS[@]} ${host_dependencies[@]}
-		${c}RUN sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
-		${c}RUN locale-gen
+		${c}RUN echo "--> CACHE MISS IN DOCKERFILE: apt update." && DEBIAN_FRONTEND=noninteractive apt-get -y update
+		${DOCKERFILE_APT_INSTALL_RUNS}
+		${c}# Use C.UTF-8 locale which is available in rootfs from the very first command
 		WORKDIR ${DOCKER_ARMBIAN_TARGET_PATH}
-		ENV ARMBIAN_RUNNING_IN_CONTAINER=yes
+		ENV ARMBIAN_RUNNING_IN_CONTAINER=yes LANG=C.UTF-8
 		ADD . ${DOCKER_ARMBIAN_TARGET_PATH}/
 		${c}${c_req}RUN echo "--> CACHE MISS IN DOCKERFILE: running Armbian requirements initialization." && \\
 		${c}${c_req} ARMBIAN_INSIDE_DOCKERFILE_BUILD="yes" /bin/bash "${DOCKER_ARMBIAN_TARGET_PATH}/compile.sh" requirements SHOW_LOG=yes && \\
@@ -296,8 +409,13 @@ function docker_cli_prepare_dockerfile() {
 }
 
 function docker_cli_build_dockerfile() {
-	local do_force_pull="no"
+	# DOCKER_FORCE_PULL=yes forces a re-pull of the base image, bypassing the
+	# ~24h marker cache below. Use it to pick up a freshly-published framework
+	# image immediately (e.g. after a docker-armbian-build change) instead of
+	# waiting for the marker to expire or the local copy to be removed.
+	local do_force_pull="${DOCKER_FORCE_PULL:-no}"
 	local local_image_sha
+	[[ "${do_force_pull}" == "yes" ]] && display_alert "Docker base image" "DOCKER_FORCE_PULL=yes: forcing a re-pull" "info"
 
 	declare docker_marker_dir="${SRC}"/cache/docker
 
@@ -336,7 +454,12 @@ function docker_cli_build_dockerfile() {
 	if [[ "${do_force_pull:-yes}" == "yes" ]]; then
 		display_alert "Pulling" "${DOCKER_ARMBIAN_BASE_IMAGE}" "info"
 		local pull_failed="yes"
-		run_host_command_logged docker pull "${DOCKER_ARMBIAN_BASE_IMAGE}" && pull_failed="no"
+		# Retry the pull: ghcr.io intermittently returns "error from registry:
+		# denied" under load or on a transient token hiccup even for a
+		# published, accessible image. A single failure would otherwise drop us
+		# into a needless (and much slower) from-scratch build. Retry a few
+		# times before giving up; only then fall back to scratch.
+		sleep_seconds=10 do_with_retries 3 run_host_command_logged docker pull "${DOCKER_ARMBIAN_BASE_IMAGE}" && pull_failed="no"
 
 		if [[ "${pull_failed}" == "no" ]]; then
 			local_image_sha="$(docker images --no-trunc --quiet "${DOCKER_ARMBIAN_BASE_IMAGE}")"
@@ -357,6 +480,15 @@ function docker_cli_build_dockerfile() {
 		display_alert "Re-created" "Dockerfile, proceeding, build from scratch" "debug"
 	fi
 
+	# Without buildx, the classic builder keeps its layer cache only in the image store, so the
+	# per-build image removed at the end of every run (see docker_cli_launch) takes the cache with
+	# it: each invocation re-runs the whole Dockerfile, including the expensive requirements step.
+	# Those images also escape both reapers -- 'docker image prune' skips tagged ones, and
+	# docker_cleanup_old_images() matches a different repo -- so they pile up as well.
+	if [[ "${DOCKER_HAS_BUILDX}" != "yes" ]]; then
+		display_alert "Docker buildx not available" "install it, or this image is rebuilt from scratch on every run (and the leftovers are never cleaned up); see 'docker buildx' / package docker-buildx(-plugin)" "err"
+	fi
+
 	display_alert "Building" "Dockerfile via '${DOCKER_BUILDX_OR_BUILD[*]}'" "info"
 
 	BUILDKIT_COLORS="run=123,20,245:error=yellow:cancel=blue:warning=white" \
@@ -365,13 +497,28 @@ function docker_cli_build_dockerfile() {
 
 function docker_cli_prepare_launch() {
 	display_alert "Preparing" "common Docker arguments" "debug"
+
+	# The container otherwise inherits the Docker daemon's default open-file limit
+	# (classically 1024 soft), independent of the host's own (possibly generous)
+	# limit. That is too low for the parallel info-gatherer (cpu*4 workers, each
+	# holding pipes) and it dies with "OSError: [Errno 24] Too many open files".
+	# Pass the HOST's hard limit through so the container matches the host. The
+	# host hard limit can never exceed the kernel's fs.nr_open, and the container
+	# shares that kernel, so this value is always a valid --ulimit.
+	declare _docker_nofile_hard
+	_docker_nofile_hard="$(ulimit -H -n 2> /dev/null || true)"
+	[[ "${_docker_nofile_hard}" == "unlimited" || -z "${_docker_nofile_hard}" ]] && _docker_nofile_hard=1048576
+
 	declare -g -a DOCKER_ARGS=(
 		"--rm" # side effect - named volumes are considered not attached to anything and are removed on "docker volume prune", since container was removed.
 
-		"--privileged"         # Yep. Armbian needs /dev/loop access, device access, etc. Don't even bother trying without it.
 		"--cap-add=SYS_ADMIN"  # add only required capabilities instead
 		"--cap-add=MKNOD"      # (though MKNOD should be already present)
 		"--cap-add=SYS_PTRACE" # CAP_SYS_PTRACE is required for systemd-detect-virt in some cases @TODO: rpardini: so lets eliminate it @TODO: rpardini maybe it's dead already?
+
+		# Match the host's open-file limit (see above) so the parallel info-gatherer
+		# isn't capped by the container's default 1024 and hit Errno 24.
+		"--ulimit" "nofile=${_docker_nofile_hard}:${_docker_nofile_hard}"
 
 		# Pass env var ARMBIAN_RUNNING_IN_CONTAINER to indicate we're running under Docker. This is also set in the Dockerfile; make sure.
 		"--env" "ARMBIAN_RUNNING_IN_CONTAINER=yes"
@@ -379,10 +526,17 @@ function docker_cli_prepare_launch() {
 		# Change the ccache directory to the named volume or bind created. @TODO: this needs more love. it works for Docker, but not sudo
 		"--env" "CCACHE_DIR=${DOCKER_ARMBIAN_TARGET_PATH}/cache/ccache"
 
-		# Pass down the TERM, COLORFGBG, and the COLUMNS
+		# Forward CPUTHREADS (the build's `make -j` override) into the container.
+		# It is an env var, not a CLI arg, so without this passthrough the container
+		# never sees it and falls back to the default CPU-based thread count.
+		"--env" "CPUTHREADS=${CPUTHREADS-}"
+
+		# Pass down the TERM, COLORFGBG, and the COLUMNS. docker run has no --tty,
+		# so the container can't measure the terminal itself; forward the width
+		# captured on the host (ARMBIAN_TTY_COLUMNS) so patch tables match it.
 		"--env" "TERM=${TERM}"
 		"--env" "COLORFGBG=${COLORFGBG-}"
-		"--env" "COLUMNS=${COLUMNS:-"160"}"
+		"--env" "COLUMNS=${COLUMNS:-${ARMBIAN_TTY_COLUMNS:-}}"
 
 		# Pass down the CI env var (GitHub Actions, Jenkins, etc)
 		"--env" "CI=${CI}"                         # All CI's, hopefully
@@ -409,14 +563,40 @@ function docker_cli_prepare_launch() {
 		"--env" "GITHUB_SHA=${GITHUB_SHA}"
 		"--env" "GITHUB_WORKFLOW=${GITHUB_WORKFLOW}"
 		"--env" "GITHUB_WORKSPACE=${GITHUB_WORKSPACE}"
+		"--env" "RUNNER_ARCH=${RUNNER_ARCH}"
+		"--env" "RUNNER_ENVIRONMENT=${RUNNER_ENVIRONMENT}"
+		"--env" "RUNNER_NAME=${RUNNER_NAME}"
 
 		# Pass proxy args
- 		"--env" "http_proxy=${http_proxy:-${HTTP_PROXY}}"
- 		"--env" "https_proxy=${https_proxy:-${HTTPS_PROXY}}"
- 		"--env" "HTTP_PROXY=${HTTP_PROXY}"
-		"--env" "HTTPS_PROXY=${HTTPS_PROXY}"
-		"--env" "APT_PROXY_ADDR=${APT_PROXY_ADDR}"
+		"--env" "http_proxy=${http_proxy:-${HTTP_PROXY:-}}"
+		"--env" "https_proxy=${https_proxy:-${HTTPS_PROXY:-}}"
+		"--env" "HTTP_PROXY=${HTTP_PROXY:-${http_proxy:-}}"
+		"--env" "HTTPS_PROXY=${HTTPS_PROXY:-${https_proxy:-}}"
+		"--env" "ftp_proxy=${ftp_proxy:-${FTP_PROXY:-}}"
+		"--env" "FTP_PROXY=${FTP_PROXY:-${ftp_proxy:-}}"
+		"--env" "no_proxy=${no_proxy:-${NO_PROXY:-}}"
+		"--env" "NO_PROXY=${NO_PROXY:-${no_proxy:-}}"
+		"--env" "APT_PROXY_ADDR=${APT_PROXY_ADDR:-}"
+		"--env" "GITPROXY_ADDRESS=${GITPROXY_ADDRESS:-}"
 	)
+
+	# Pass in host DNS server so container can resolve hostnames on proxy
+	declare _dns_resolv_file="/etc/resolv.conf"
+	[[ -f "/run/systemd/resolve/resolv.conf" ]] && _dns_resolv_file="/run/systemd/resolve/resolv.conf"
+	while IFS= read -r _dns_server; do
+		[[ "${_dns_server}" =~ ^127\. || "${_dns_server}" == "::1" || "${_dns_server}" =~ ^fe80: ]] && continue
+		DOCKER_ARGS+=("--dns" "${_dns_server}")
+	done < <(awk '/^nameserver/ {print $2}' "${_dns_resolv_file}" 2> /dev/null)
+
+	# DOCKER_PRIVILEGED=no switches to a narrow capability set.
+	if [[ "${DOCKER_PRIVILEGED:-yes}" == "yes" ]]; then
+		DOCKER_ARGS+=("--privileged")
+	else
+		DOCKER_ARGS+=(
+			"--device=/dev/loop-control:/dev/loop-control"
+			"--security-opt=seccomp=unconfined"
+		)
+	fi
 
 	# This env var is used super early (in entrypoint.sh), so set it as an env to current value.
 	if [[ "${DOCKER_ARMBIAN_ENABLE_CALL_TRACING:-no}" == "yes" ]]; then
@@ -503,7 +683,7 @@ function docker_cli_prepare_launch() {
 				# type=volume, without source=, is an anonymous volume -- will be auto cleaned up together with the container;
 				# this could also be a type=tmpfs if you had enough ram - but armbian already does tmpfs for you if you
 				#                                                         have enough RAM (inside the container) so don't bother.
-				DOCKER_ARGS+=("--mount" "type=volume,destination=${DOCKER_ARMBIAN_TARGET_PATH}/${MOUNT_DIR}")
+				DOCKER_ARGS+=("--mount" "type=volume,destination=${DOCKER_ARMBIAN_TARGET_PATH}/${MOUNT_DIR}${DOCKER_IS_PODMAN:+,exec,dev}")
 				;;
 			bind)
 				display_alert "Mounting" "bind mount for '${MOUNT_DIR}'" "debug"
@@ -512,7 +692,7 @@ function docker_cli_prepare_launch() {
 				;;
 			namedvolume)
 				display_alert "Mounting" "named volume id '${volume_id}' for '${MOUNT_DIR}'" "debug"
-				DOCKER_ARGS+=("--mount" "type=volume,source=armbian-${volume_id},destination=${DOCKER_ARMBIAN_TARGET_PATH}/${MOUNT_DIR}")
+				DOCKER_ARGS+=("--mount" "type=volume,source=armbian-${volume_id},destination=${DOCKER_ARMBIAN_TARGET_PATH}/${MOUNT_DIR}${DOCKER_IS_PODMAN:+,exec,dev}")
 				;;
 			*)
 				display_alert "Unknown Mountpoint Type" "unknown volume type '${docker_kind}' for '${MOUNT_DIR}'" "err"
@@ -559,8 +739,23 @@ function docker_cli_prepare_launch() {
 		display_alert "Not running in a terminal" "not passing through stdin to Docker" "debug"
 	fi
 
-	# if DOCKER_EXTRA_ARGS is an array and has more than zero elements, add its contents to the DOCKER_ARGS array
-	if [[ "${DOCKER_EXTRA_ARGS[*]+isset}" == "isset" && "${#DOCKER_EXTRA_ARGS[@]}" -gt 0 ]]; then
+	# Preserve any pre-existing DOCKER_EXTRA_ARGS (e.g., from user environment) and let extensions append
+	declare -g -a DOCKER_EXTRA_ARGS=("${DOCKER_EXTRA_ARGS[@]+"${DOCKER_EXTRA_ARGS[@]}"}")
+
+	# Hook for extensions to add Docker arguments before launch
+	call_extension_method "host_pre_docker_launch" <<- 'HOST_PRE_DOCKER_LAUNCH'
+		*run on host just before Docker container is launched*
+		Extensions can add Docker arguments by appending to DOCKER_EXTRA_ARGS array.
+		Each array element should be a complete argument (e.g., "--env", "MY_VAR=value" as separate elements).
+		Example: DOCKER_EXTRA_ARGS+=("--env" "MY_VAR=value" "--mount" "type=bind,src=/a,dst=/b")
+		Available variables:
+		  - DOCKER_ARGS[@]: current Docker arguments (do not modify directly)
+		  - DOCKER_EXTRA_ARGS[@]: array to append extra arguments for docker run
+		  - DOCKER_ARMBIAN_TARGET_PATH: path inside container (/armbian)
+	HOST_PRE_DOCKER_LAUNCH
+
+	# Add DOCKER_EXTRA_ARGS to DOCKER_ARGS if any were added by extensions
+	if [[ "${#DOCKER_EXTRA_ARGS[@]}" -gt 0 ]]; then
 		display_alert "Adding extra Docker arguments" "${DOCKER_EXTRA_ARGS[*]}" "debug"
 		DOCKER_ARGS+=("${DOCKER_EXTRA_ARGS[@]}")
 	fi
@@ -600,6 +795,15 @@ function docker_cli_launch() {
 		skip_ci_special="yes" display_alert "-------------Docker run failed after ${SECONDS}s--------------------------" "🐳 failed" "err"
 	fi
 
+	# This build owns a unique '${DOCKER_ARMBIAN_INITIAL_IMAGE_TAG}' tag (one per build, so parallel
+	# builds on a shared daemon never collide). The container has exited (--rm), so remove our tag now —
+	# otherwise these per-build images pile up: they stay *tagged*, so neither 'docker image prune'
+	# (dangling-only) nor docker_cleanup_old_images() (which matches 'docker-armbian-build', not the
+	# local 'armbian.local.only/armbian-build' repo) ever reaps them. Removing our own unique tag can't
+	# disturb other in-flight builds, and shared base layers are kept. Ignore errors (the image may
+	# already be gone, e.g. reaped by host housekeeping).
+	run_host_command_logged docker image rm --force "${DOCKER_ARMBIAN_INITIAL_IMAGE_TAG}" "||" true
+
 	# Find and show the path to the log file for the ARMBIAN_BUILD_UUID.
 	local logs_path="${DEST}/logs" log_file
 	log_file="$(find "${logs_path}" -type f -name "*${ARMBIAN_BUILD_UUID}*.*" -print -quit)"
@@ -630,4 +834,281 @@ function docker_purge_deprecated_volumes() {
 			display_alert "Deprecated Docker volume not found" "${volume_id} OK" "info"
 		fi
 	done
+}
+
+# Clean old/unused Docker images to free disk space
+# Removes dangling images and keeps only the 2 most recent armbian images per tag
+function docker_cleanup_old_images() {
+	display_alert "Cleaning old Docker images" "removing dangling and keeping only 2 most recent per tag" "info"
+
+	# Remove dangling images (layers with no tags)
+	display_alert "Pruning dangling images" "docker image prune -f" "debug"
+	docker image prune -f > /dev/null 2>&1 || true
+
+	# For each armbian image tag, keep only the 2 most recent
+	declare image_tags=()
+	while IFS= read -r line; do
+		image_tags+=("$line")
+	done < <(docker images --format '{{.Repository}}:{{.Tag}}' | grep "docker-armbian-build" | sort -u)
+
+	for image_tag in "${image_tags[@]}"; do
+		# Get all image IDs for this tag, sorted by creation date (newest first)
+		declare -a image_ids=()
+		while IFS= read -r line; do
+			image_ids+=("$line")
+		done < <(docker images --format '{{.ID}} {{.CreatedAt}}' "${image_tag}" | sort -r -k2,2 -k3,3 -k4,4 -k5,5 | awk '{print $1}')
+
+		# Remove images beyond the first 2 (keep newest 2)
+		if [[ ${#image_ids[@]} -gt 2 ]]; then
+			for ((i = 2; i < ${#image_ids[@]}; i++)); do
+				display_alert "Removing old image" "${image_tag}:${image_ids[$i]}" "debug"
+				docker rmi "${image_ids[$i]}" > /dev/null 2>&1 || true
+			done
+		fi
+	done
+
+	# Reap leftovers of the per-build tag (see DOCKER_ARMBIAN_INITIAL_IMAGE_TAG). Every run coins its
+	# own tag, so the "keep the newest 2" rule above never sees more than one image per tag and can
+	# never reap them; 'docker image prune' ignores them too, since they are tagged, not dangling.
+	# Group by repository instead, and work on tag references rather than image IDs: a cached rebuild
+	# hangs a new tag on the image it reused, and 'docker rmi <id>' refuses an image carrying several
+	# tags, so those leftovers would survive. Age comes from LastTagTime rather than the creation
+	# date, which belongs to whatever build first produced the image and can be far older than a tag
+	# that a build in flight -- possibly another user's on a shared daemon -- has only just attached
+	# to it. LastTagTime tracks the image, not the individual tag, so re-tagging shields the older
+	# tags on that image as well; erring towards keeping them costs one image worth of disk, while
+	# the opposite error kills a running build.
+	declare stale_ref stale_tag_time stale_tag_is_zero stale_tagged_at
+	declare -i stale_tag_cutoff=$(($(date +%s) - 48 * 3600))
+	while read -r stale_ref; do
+		[[ -z "${stale_ref}" ]] && continue
+		stale_tag_time="$(docker image inspect --format '{{.Metadata.LastTagTime.IsZero}} {{.Metadata.LastTagTime.Unix}}' "${stale_ref}" 2> /dev/null || true)"
+		stale_tag_is_zero="${stale_tag_time%% *}"
+		stale_tagged_at="${stale_tag_time##* }"
+		# An unset tag time renders as the year-one zero value, which would read as ancient: leave it.
+		[[ "${stale_tag_is_zero}" != "false" ]] && continue
+		[[ ! "${stale_tagged_at}" =~ ^[0-9]+$ ]] && continue
+		if [[ ${stale_tagged_at} -lt ${stale_tag_cutoff} ]]; then
+			display_alert "Removing leftover per-build image" "${stale_ref}" "debug"
+			docker rmi "${stale_ref}" > /dev/null 2>&1 || true
+		fi
+	done < <(docker images --format '{{.Repository}}:{{.Tag}}' "${DOCKER_ARMBIAN_LOCAL_IMAGE_REPO:-"armbian.local.only/armbian-build"}" 2> /dev/null)
+
+	display_alert "Docker cleanup complete" "dangling images removed, old armbian images pruned" "info"
+}
+
+# Pull a Docker image and update the marker file to track when it was last pulled
+# Usage: docker_pull_with_marker <image_name>
+function docker_pull_with_marker() {
+	declare image_name="$1"
+	declare docker_marker_dir="${SRC}"/cache/docker
+
+	# If cache dir exists, but we can't write to cache dir...
+	if [[ -d "${SRC}"/cache ]] && [[ ! -w "${SRC}"/cache ]]; then
+		docker_marker_dir="${SRC}"/.tmp/docker
+	fi
+
+	run_host_command_logged mkdir -p "${docker_marker_dir}"
+
+	display_alert "Pulling Docker image" "${image_name}" "info"
+
+	if docker pull "${image_name}"; then
+		# Update marker file after successful pull
+		declare local_image_sha
+		local_image_sha="$(docker images --no-trunc --quiet "${image_name}")"
+		if [[ -n "${local_image_sha}" ]]; then
+			echo "${image_name}|${local_image_sha}|$(date +%s)" >> "${docker_marker_dir}"/last-pull
+			display_alert "Updated pull marker" "${image_name}" "debug"
+		fi
+		return 0
+	else
+		display_alert "Failed to pull" "${image_name}" "wrn"
+		return 1
+	fi
+}
+
+# Setup or update system cronjob to automatically pull Docker images
+# This ensures images are always fresh before builds start
+# Controlled by ARMBIAN_DOCKER_AUTO_PULL environment variable (must be explicitly set to "yes" to enable)
+function docker_setup_auto_pull_cronjob() {
+	if [[ ! -d /etc/cron.d ]]; then
+		exit_with_error "Docker auto-pull cronjob" "cron not available; /etc/cron.d does not exist on this system"
+	fi
+	declare cron_file="/etc/cron.d/armbian-docker-pull"
+	declare wrapper_script="/usr/local/bin/armbian-docker-pull"
+	declare hash_file="/var/lib/armbian/docker-pull.hash"
+
+	# Determine which images to pull based on common base images
+	declare -a images_to_pull=(
+		"ghcr.io/armbian/docker-armbian-build:armbian-ubuntu-noble-latest"
+		"ghcr.io/armbian/docker-armbian-build:armbian-debian-trixie-latest"
+	)
+
+	# Generate the wrapper script content (self-contained)
+	declare wrapper_content
+	wrapper_content=$(
+		cat <<- 'EOT'
+			#!/usr/bin/env bash
+			# Auto-generated by Armbian build framework
+			# Pulls Docker images and updates markers to prevent unnecessary re-pulls
+			# DO NOT EDIT MANUALLY - this file is regenerated by the build system
+
+			set -e
+			set -o pipefail
+
+			SRC="__SRC_PLACEHOLDER__"
+			MARKER_DIR="${SRC}/cache/docker"
+
+			# Fallback to .tmp if cache is not writable
+			if [[ -d "${SRC}/cache" ]] && [[ ! -w "${SRC}/cache" ]]; then
+				MARKER_DIR="${SRC}/.tmp/docker"
+			fi
+
+			mkdir -p "${MARKER_DIR}"
+
+			# Simple logging function
+			log() {
+				echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" | logger -t armbian-docker-pull
+			}
+
+			# Pull a Docker image and update the marker file
+			pull_with_marker() {
+				local image_name="$1"
+
+				log "Pulling Docker image: ${image_name}"
+
+				if docker pull "${image_name}" 2>&1 | logger -t armbian-docker-pull; then
+					# Update marker file after successful pull
+					local local_image_sha
+					local_image_sha="$(docker images --no-trunc --quiet "${image_name}")"
+					if [[ -n "${local_image_sha}" ]]; then
+						echo "${image_name}|${local_image_sha}|$(date +%s)" >> "${MARKER_DIR}/last-pull"
+						log "Updated pull marker for: ${image_name}"
+					fi
+					return 0
+				else
+					log "Failed to pull: ${image_name}"
+					return 1
+				fi
+			}
+
+			# Pull each image
+			__IMAGE_COMMANDS__
+		EOT
+	)
+
+	# Replace placeholders with actual values
+	wrapper_content="${wrapper_content//__SRC_PLACEHOLDER__/${SRC}}"
+	declare image_commands=""
+	for image in "${images_to_pull[@]}"; do
+		image_commands+="pull_with_marker \"${image}\""$'\n'
+	done
+	wrapper_content="${wrapper_content//__IMAGE_COMMANDS__/${image_commands}}"
+
+	# Calculate hash of the wrapper content
+	declare current_wrapper_hash
+	current_wrapper_hash="$(echo "${wrapper_content}" | sha256sum | cut -d' ' -f1)"
+
+	# Generate the cron file content
+	declare cron_content
+	cron_content=$(
+		cat <<- 'EOT'
+			# Armbian Docker image auto-pull
+			# Pulls Docker images every 12 hours to keep them fresh
+			# This prevents the '12 hours since last pull, pulling again' delay during builds
+			# DO NOT EDIT MANUALLY - this file is regenerated by the build system
+		EOT
+	)
+	declare cron_user="${ARMBIAN_DOCKER_PULL_USER:-${SUDO_USER:-$(whoami)}}"
+	cron_content="${cron_content}"$'\n'"0 */12 * * * ${cron_user} ${wrapper_script} 2>&1 | logger -t armbian-docker-pull"
+
+	# Calculate combined hash (wrapper + cron content)
+	declare current_hash="${current_wrapper_hash}"
+	cron_hash="$(echo "${cron_content}" | sha256sum | cut -d' ' -f1)"
+	current_hash="$(echo "${current_hash}${cron_hash}" | sha256sum | cut -d' ' -f1)"
+
+	# Check if we need to update
+	declare needs_update="yes"
+	if [[ -f "${hash_file}" ]]; then
+		declare stored_hash
+		stored_hash="$(cat "${hash_file}")"
+		if [[ "${stored_hash}" == "${current_hash}" ]]; then
+			needs_update="no"
+		else
+			display_alert "Docker auto-pull" "configuration changed, updating" "info"
+		fi
+	fi
+
+	if [[ "${needs_update}" == "yes" ]]; then
+		# Create/update wrapper script
+		display_alert "Creating/updating Docker auto-pull wrapper script" "${wrapper_script}" "info"
+		if ! echo "${wrapper_content}" | sudo tee "${wrapper_script}" > /dev/null 2>&1; then
+			display_alert "Docker auto-pull" "failed to create wrapper script (sudo required)" "warn"
+			return 0
+		fi
+		sudo chmod +x "${wrapper_script}" || true
+
+		# Create/update cron file. Guard the write like the wrapper script above:
+		# if the tee fails (sudo refused, /etc read-only, cron not really
+		# present, ...) we must NOT go on to chmod a file that was never
+		# created — that is what printed the confusing
+		# "chmod: cannot access '${cron_file}': No such file or directory".
+		# Treat it as best-effort and bail gracefully, same as the wrapper path.
+		display_alert "Creating/updating Docker auto-pull cronjob" "${cron_file}" "info"
+		if ! echo "${cron_content}" | sudo tee "${cron_file}" > /dev/null 2>&1; then
+			display_alert "Docker auto-pull" "failed to create cronjob ${cron_file} (sudo/permissions?)" "warn"
+			return 0
+		fi
+		sudo chmod 600 "${cron_file}" || true
+
+		# Store hash for next time
+		sudo mkdir -p "$(dirname "${hash_file}")"
+		echo "${current_hash}" | sudo tee "${hash_file}" > /dev/null
+		sudo chmod 644 "${hash_file}"
+
+		# Verify cron service is running
+		if systemctl is-active --quiet cron || systemctl is-active --quiet crond; then
+			display_alert "Docker auto-pull cronjob" "installed/updated successfully - images will be pulled every 12 hours" "info"
+		else
+			display_alert "Docker auto-pull cronjob" "installed/updated but cron service not active" "warn"
+		fi
+	fi
+}
+
+# Check if auto-pull cronjob is installed, and install if not or outdated
+# Controlled by ARMBIAN_DOCKER_AUTO_PULL environment variable (must be explicitly set to "yes" to enable)
+function docker_ensure_auto_pull_cronjob() {
+	declare wrapper_script="/usr/local/bin/armbian-docker-pull"
+	declare cron_file="/etc/cron.d/armbian-docker-pull"
+	declare hash_file="/var/lib/armbian/docker-pull.hash"
+
+	# Only proceed if ARMBIAN_DOCKER_AUTO_PULL is explicitly set to "yes"
+	if [[ "${ARMBIAN_DOCKER_AUTO_PULL}" != "yes" ]]; then
+		# Remove cronjob, wrapper script, and hash file if they exist
+		if [[ -f "${cron_file}" ]] || [[ -f "${wrapper_script}" ]] || [[ -f "${hash_file}" ]]; then
+			display_alert "Docker auto-pull" "removing cronjob and wrapper script" "info"
+
+			if [[ -f "${cron_file}" ]]; then
+				run_host_command_logged sudo rm -f "${cron_file}"
+				display_alert "Removed" "cron file: ${cron_file}" "debug"
+			fi
+
+			if [[ -f "${wrapper_script}" ]]; then
+				run_host_command_logged sudo rm -f "${wrapper_script}"
+				display_alert "Removed" "wrapper script: ${wrapper_script}" "debug"
+			fi
+
+			if [[ -f "${hash_file}" ]]; then
+				run_host_command_logged sudo rm -f "${hash_file}"
+				display_alert "Removed" "hash file: ${hash_file}" "debug"
+			fi
+
+			display_alert "Docker auto-pull" "cronjob and wrapper script removed successfully" "info"
+		fi
+		return 0
+	fi
+
+	# ARMBIAN_DOCKER_AUTO_PULL is explicitly set to "yes", ensure cronjob is installed
+	# Always call docker_setup_auto_pull_cronjob - it will check hashes and only update if needed
+	docker_setup_auto_pull_cronjob
 }

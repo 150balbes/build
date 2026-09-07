@@ -1,8 +1,10 @@
 # Rockchip RK3528 quad core 1-2GB SoC 2xGBe 8GB eMMC
 BOARD_NAME="Radxa E20C"
+BOARD_VENDOR="radxa"
 BOARDFAMILY="rk35xx"
 BOOTCONFIG="radxa_e20c_rk3528_defconfig"
 BOARD_MAINTAINER="mattx433"
+INTRODUCED="2024"
 KERNEL_TARGET="vendor"
 FULL_DESKTOP="no"
 BOOT_LOGO="desktop"

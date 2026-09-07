@@ -1,7 +1,9 @@
 # Allwinner H6 quad core 2GB RAM SoC GBE USB3
 BOARD_NAME="Orange Pi 3"
+BOARD_VENDOR="xunlong"
 BOARDFAMILY="sun50iw6"
 BOARD_MAINTAINER=""
+INTRODUCED="2019"
 BOOTCONFIG="orangepi_3_defconfig"
 KERNEL_TARGET="current,edge,legacy"
 KERNEL_TEST_TARGET="current"

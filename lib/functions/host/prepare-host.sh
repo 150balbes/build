@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
@@ -41,27 +41,12 @@ function prepare_host_noninteractive() {
 
 	# The 'offline' variable must always be set to 'true' or 'false'
 	declare offline=false
-	if [ "$OFFLINE_WORK" == "yes" ]; then
+	if [[ "$OFFLINE_WORK" == "yes" ]]; then
 		offline=true
 	fi
 
-	# fix for Locales settings, if locale-gen is installed, and /etc/locale.gen exists.
-	if [[ -n "$(command -v locale-gen)" && -f /etc/locale.gen ]]; then
-		if ! grep -q "^en_US.UTF-8 UTF-8" /etc/locale.gen; then
-			# @TODO: rpardini: this is bull, we're always root here. we've been pre-sudo'd.
-			local sudo_prefix="" && is_root_or_sudo_prefix sudo_prefix # nameref; "sudo_prefix" will be 'sudo' or ''
-			${sudo_prefix} sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
-			${sudo_prefix} locale-gen
-		fi
-	else
-		display_alert "locale-gen is not installed @host" "skipping locale-gen -- problems might arise" "warn"
-	fi
-
-	# Let's try and get all log output in English, overriding the builder's chosen or default language
-	export LANG="en_US.UTF-8"
-	export LANGUAGE="en_US.UTF-8"
-	export LC_ALL="en_US.UTF-8"
-	export LC_MESSAGES="en_US.UTF-8"
+	# Use C.UTF-8 locale for the build environment (no generation required)
+	export LANG="C.UTF-8"
 
 	declare -g USE_LOCAL_APT_DEB_CACHE=${USE_LOCAL_APT_DEB_CACHE:-yes} # Use SRC/cache/aptcache as local apt cache by default
 	display_alert "Using local apt cache?" "USE_LOCAL_APT_DEB_CACHE: ${USE_LOCAL_APT_DEB_CACHE}" "debug"
@@ -108,14 +93,7 @@ function prepare_host_noninteractive() {
 
 	# create directory structure # @TODO: this should be close to DEST, otherwise super-confusing
 	mkdir -p "${SRC}"/{cache,output} "${USERPATCHES_PATH}" "${SRC}"/output/info
-
-	# @TODO: original: mkdir -p "${DEST}"/debs-beta/extra "${DEST}"/debs/extra "${DEST}"/{config,debug,patch} "${USERPATCHES_PATH}"/overlay "${SRC}"/cache/{sources,hash,hash-beta,toolchain,utility,rootfs} "${SRC}"/.tmp
 	mkdir -p "${USERPATCHES_PATH}"/overlay "${SRC}"/cache/{sources,rootfs} "${SRC}"/.tmp
-
-	# If offline, do not try to download/install toolchains.
-	if ! $offline; then
-		download_external_toolchains # Mostly deprecated, since SKIP_EXTERNAL_TOOLCHAINS=yes is the default
-	fi
 
 	prepare_host_binfmt_qemu # in qemu-static.sh as most binfmt/qemu logic is there now
 
@@ -176,43 +154,48 @@ function adaptative_prepare_host_dependencies() {
 	fi
 
 	#### Common: for all releases, all host arches, and all target arches.
+	#### Each entry carries an optional "group::" prefix (split on the first "::");
+	#### the group is used to split the Docker image into multiple, parallel-pullable
+	#### apt layers (see docker.sh). Unprefixed entries fall into the "core" group.
 	declare -a -g host_dependencies=(
-		# big bag of stuff from before
-		bc binfmt-support
-		bison
-		bsdextrautils
-		libc6-dev make dpkg-dev gcc # build-essential, without g++
-		ca-certificates ccache cpio
-		device-tree-compiler dialog dirmngr dosfstools
-		dwarves # dwarves has been replaced by "pahole" and is now a transitional package
-		e2fsprogs
-		flex
-		gawk gnupg gpg
-		imagemagick # required for plymouth: converting images / spinners
-		jq          # required for parsing JSON, specially rootfs-caching related.
-		kmod        # this causes initramfs rebuild, but is usually pre-installed, so no harm done unless it's an upgrade
-		libbison-dev libelf-dev libfdt-dev libfile-fcntllock-perl libmpc-dev libfl-dev lz4
-		libncurses-dev libssl-dev libusb-1.0-0-dev
-		linux-base locales lsof
-		ncurses-base ncurses-term # for `make menuconfig`
-		ntpsec-ntpdate #this is a more secure ntpdate
-		patchutils pkg-config pv
-		"qemu-user-static" "arch-test"
-		rsync
-		swig # swig is needed for some u-boot's. example: "bananapi.conf"
-		u-boot-tools
-		udev # causes initramfs rebuild, but is usually pre-installed.
-		uuid-dev
-		zlib1g-dev
+		# native compiler toolchain & build essentials
+		native-toolchain::libc6-dev native-toolchain::make native-toolchain::dpkg-dev native-toolchain::gcc # build-essential, without g++
+		native-toolchain::ccache native-toolchain::bison native-toolchain::flex native-toolchain::pkg-config
+		native-toolchain::libbison-dev native-toolchain::libmpc-dev native-toolchain::libfl-dev
 
-		# by-category below
-		file tree expect                         # logging utilities; expect is needed for 'unbuffer' command
-		colorized-logs                           # for ansi2html, ansi2txt, pipetty
-		unzip zip pigz xz-utils pbzip2 lzop zstd # compressors et al
-		parted gdisk fdisk                       # partition tools @TODO why so many?
-		aria2 curl axel                          # downloaders et al
-		parallel                                 # do things in parallel (used for fast md5 hashing in initrd cache)
-		rdfind                                   # armbian-firmware-full/linux-firmware symlink creation step
+		# dev libraries & build helper tools
+		build-tools::device-tree-compiler build-tools::libelf-dev build-tools::libfdt-dev
+		build-tools::libncurses-dev build-tools::libssl-dev build-tools::libusb-1.0-0-dev
+		build-tools::swig build-tools::u-boot-tools build-tools::uuid-dev build-tools::uuid-runtime build-tools::zlib1g-dev # swig needed for some u-boot's; uuid-runtime provides uuidgen for unique Docker image tags
+		build-tools::dwarves                                                                                                # dwarves has been replaced by "pahole" and is now a transitional package
+
+		# imaging - required for plymouth: converting images / spinners; large fan-out of libs
+		imaging::imagemagick
+
+		# filesystem & partition tooling
+		fs-tools::dosfstools fs-tools::e2fsprogs fs-tools::parted fs-tools::gdisk fs-tools::fdisk
+
+		# core/misc: small utilities, downloaders, gpg, ncurses, logging, compressors, etc.
+		# binfmt-support/arch-test live here too (the heavy qemu-user-static is its own "qemu" group).
+		core::binfmt-support core::arch-test
+		core::lz4 core::unzip core::zip core::pigz core::xz-utils core::pbzip2 core::lzop core::zstd # compressors et al
+		core::bc core::bsdextrautils core::ca-certificates core::cpio
+		core::dialog core::dirmngr core::gawk core::gettext core::gnupg core::gpg
+		core::jq   # required for parsing JSON, specially rootfs-caching related.
+		core::kmod # causes initramfs rebuild, but usually pre-installed, so no harm unless it's an upgrade
+		core::libfile-fcntllock-perl
+		core::linux-base core::locales core::lsof
+		core::ncurses-base core::ncurses-term # for `make menuconfig`
+		core::ntpsec-ntpdate                  # this is a more secure ntpdate
+		core::patchutils core::pv
+		core::rsync
+		core::udev                                   # causes initramfs rebuild, but is usually pre-installed.
+		core::file core::tree core::expect           # logging utilities; expect is needed for 'unbuffer' command
+		core::colorized-logs                         # for ansi2html, ansi2txt, pipetty
+		core::aria2 core::curl core::axel core::wget # downloaders et al
+		core::parallel                               # do things in parallel (used for fast md5 hashing in initrd cache)
+		core::rdfind                                 # armbian-firmware-full/linux-firmware symlink creation step
+		core::binwalk                                # for debugging produced u-boot binaries
 	)
 
 	# @TODO: distcc -- handle in extension?
@@ -223,10 +206,12 @@ function adaptative_prepare_host_dependencies() {
 	### Python3 -- required for Armbian's Python tooling, and also for more recent u-boot builds. Needs 3.9+; ffi-dev is needed for some Python packages when the wheel is not prebuilt
 	### 'python3-setuptools' and 'python3-pyelftools' moved to requirements.txt to make sure build hosts use the same/latest versions of these tools.
 	### 'python3-dev' depends on distutils, so instead depend on libpython3-dev which doesn't.
-	host_dependencies+=("python3" "libpython3-dev" "libffi-dev")
+	### 'python3-yaml' is needed by configng's parse_desktop_yaml.py during
+	###   BUILD_DESKTOP=yes (config-desktop.sh::interactive_desktop_main_configuration).
+	host_dependencies+=("python::python3" "python::libpython3-dev" "python::libffi-dev" "python::python3-yaml")
 
 	# Needed for some u-boot's, lest "tools/mkeficapsule.c:21:10: fatal error: gnutls/gnutls.h"
-	host_dependencies+=("libgnutls28-dev")
+	host_dependencies+=("build-tools::libgnutls28-dev")
 
 	# Some versions of U-Boot do not require/import 'python3-setuptools' properly, so add them explicitly.
 	if [[ 'tag:v2022.04' == "${BOOTBRANCH:-}" || 'tag:v2022.07' == "${BOOTBRANCH:-}" ]]; then
@@ -234,72 +219,95 @@ function adaptative_prepare_host_dependencies() {
 		host_dependencies+=("python3-setuptools")
 	fi
 
+	# qemu binfmt + chrooted user emulation.
+	# Up to and including Ubuntu noble / Debian trixie this is the
+	# `qemu-user-static` package (real package shipping the static
+	# /usr/libexec/qemu-binfmt/<arch>-static binaries). Ubuntu resolute
+	# (26.04) splits that into `qemu-user-binfmt` + `qemu-user-binfmt-hwe`
+	# and turns `qemu-user-static` into a virtual package — apt then
+	# refuses to auto-pick a provider, so install the non-HWE concrete
+	# name explicitly there.
+	case "${host_release}" in
+		resolute) host_dependencies+=("qemu::qemu-user-binfmt") ;;
+		*) host_dependencies+=("qemu::qemu-user-static") ;;
+	esac
+
 	### Python2 -- required for some older u-boot builds
 	# Debian newer than 'bookworm' and Ubuntu newer than 'lunar'/'mantic' does not carry python2 anymore; in this case some u-boot's might fail to build.
 	# Last versions to support python2 were Debian 'bullseye' and Ubuntu 'jammy'
 	if [[ "bullseye jammy" == *"${host_release}"* ]]; then
-		host_dependencies+=("python2" "python2-dev")
+		host_dependencies+=("python::python2" "python::python2-dev")
 	else
 		display_alert "Python2 not available on host release '${host_release}'" "ancient u-boot versions might/will fail to build" "info"
 	fi
 
 	# Only install acng if asked to.
 	if [[ "${MANAGE_ACNG}" == "yes" ]]; then
-		host_dependencies+=("apt-cacher-ng")
+		host_dependencies+=("core::apt-cacher-ng")
 	fi
 
 	### ARCH
 	declare wanted_arch="${target_arch:-"all"}"
 
-	if [[ "${wanted_arch}" == "amd64" || "${wanted_arch}" == "all" ]]; then
-		host_dependencies+=("gcc-x86-64-linux-gnu") # from crossbuild-essential-amd64
-	fi
+	# Cross-toolchains are split per target family so each lands in a similarly-sized layer.
+	# Skip cross-compilers that don't exist on non-standard host architectures (e.g. riscv64),
+	# where only riscv64 cross-compilers are available in the repositories.
+	if [[ "${host_arch}" != "riscv64" ]]; then
+		if [[ "${wanted_arch}" == "amd64" || "${wanted_arch}" == "all" ]]; then
+			host_dependencies+=("cross-amd64::gcc-x86-64-linux-gnu") # from crossbuild-essential-amd64
+		fi
 
-	if [[ "${wanted_arch}" == "arm64" || "${wanted_arch}" == "all" ]]; then
-		# gcc-aarch64-linux-gnu: from crossbuild-essential-arm64
-		# gcc-arm-linux-gnueabi: necessary for rockchip64 (and maybe other too) ATF compilation
-		host_dependencies+=("gcc-aarch64-linux-gnu" "gcc-arm-linux-gnueabi")
-	fi
+		if [[ "${wanted_arch}" == "arm64" || "${wanted_arch}" == "all" ]]; then
+			# gcc-aarch64-linux-gnu: from crossbuild-essential-arm64 (64-bit arm)
+			host_dependencies+=("cross-arm64::gcc-aarch64-linux-gnu")
+			# gcc-arm-linux-gnueabi: necessary for rockchip64 (and maybe other too) ATF compilation (32-bit arm)
+			host_dependencies+=("cross-armhf::gcc-arm-linux-gnueabi")
+		fi
 
-	if [[ "${wanted_arch}" == "armhf" || "${wanted_arch}" == "all" ]]; then
-		host_dependencies+=("gcc-arm-linux-gnueabihf") # from crossbuild-essential-armhf crossbuild-essential-armel
+		if [[ "${wanted_arch}" == "armhf" || "${wanted_arch}" == "all" ]]; then
+			host_dependencies+=("cross-armhf::gcc-arm-linux-gnueabihf") # from crossbuild-essential-armhf crossbuild-essential-armel
+		fi
 	fi
 
 	if [[ "${wanted_arch}" == "riscv64" || "${wanted_arch}" == "all" ]]; then
-		host_dependencies+=("gcc-riscv64-linux-gnu") # crossbuild-essential-riscv64 is not even available "yet"
+		host_dependencies+=("cross-other::gcc-riscv64-linux-gnu")   # crossbuild-essential-riscv64
+		host_dependencies+=("cross-other::libc6-dev-riscv64-cross") # Support for compiling riscv64 binaries
 	fi
 
 	if [[ "${wanted_arch}" == "loong64" ]]; then
-		host_dependencies+=("gcc-loongarch64-linux-gnu") # crossbuild-essential-loongarch64 is not even available "yet"
-		host_dependencies+=("debian-ports-archive-keyring")
+		host_dependencies+=("cross-other::gcc-loongarch64-linux-gnu") # crossbuild-essential-loongarch64 is not even available "yet"
+		host_dependencies+=("cross-other::debian-ports-archive-keyring")
 	fi
 
-	if [[ "${wanted_arch}" != "amd64" ]]; then
-		host_dependencies+=("libc6-amd64-cross") # Support for running x86 binaries (under qemu on other arches)
+	# libc6-amd64-cross is not available on riscv64 hosts
+	if [[ "${wanted_arch}" != "amd64" ]] && [[ "${host_arch}" != "riscv64" ]]; then
+		host_dependencies+=("cross-amd64::libc6-amd64-cross") # Support for running x86 binaries (under qemu on other arches)
 	fi
 
 	if [[ "${KERNEL_COMPILER}" == "clang" ]]; then
-		host_dependencies+=("clang")
-		host_dependencies+=("llvm")
-		host_dependencies+=("lld")
+		# llvm goes in its own (earlier) layer; clang/lld depend on libllvm, so splitting it out
+		# keeps the clang layer smaller and gives llvm its own parallel-pullable layer.
+		host_dependencies+=("llvm::llvm")
+		host_dependencies+=("clang::clang")
+		host_dependencies+=("clang::lld")
 	fi
 
-	declare -g EXTRA_BUILD_DEPS=""
+	declare -g -a EXTRA_BUILD_DEPS=()
 	call_extension_method "add_host_dependencies" <<- 'ADD_HOST_DEPENDENCIES'
 		*run before installing host dependencies*
-		you can add packages to install, space separated, to ${EXTRA_BUILD_DEPS} here.
+		append packages to install to the `EXTRA_BUILD_DEPS` array here, e.g. `EXTRA_BUILD_DEPS+=("pkg")`.
+		optionally prefix a package with a Docker-layer group, e.g. `EXTRA_BUILD_DEPS+=("fs-tools::pkg")`; unprefixed goes to "core".
 	ADD_HOST_DEPENDENCIES
 
-	if [ -n "${EXTRA_BUILD_DEPS}" ]; then
-		# shellcheck disable=SC2206 # I wanna expand. @TODO: later will convert to proper array
-		host_dependencies+=(${EXTRA_BUILD_DEPS})
+	if [[ ${#EXTRA_BUILD_DEPS[@]} -gt 0 ]]; then
+		host_dependencies+=("${EXTRA_BUILD_DEPS[@]}")
 	fi
 
 	declare -g FINAL_HOST_DEPS="${host_dependencies[*]}"
 	call_extension_method "host_dependencies_known" <<- 'HOST_DEPENDENCIES_KNOWN'
 		*run after all host dependencies are known (but not installed)*
 		At this point we can read `${FINAL_HOST_DEPS}`, but changing won't have any effect.
-		All the dependencies, including the default/core deps and the ones added via `${EXTRA_BUILD_DEPS}`
+		All the dependencies, including the default/core deps and the ones added via the `EXTRA_BUILD_DEPS` array
 		are determined at this point, but not yet installed.
 	HOST_DEPENDENCIES_KNOWN
 }
@@ -322,7 +330,7 @@ function install_host_dependencies() {
 	call_extension_method "host_dependencies_ready" <<- 'HOST_DEPENDENCIES_READY'
 		*run after all host dependencies are installed*
 		At this point we can read `${FINAL_HOST_DEPS}`, but changing won't have any effect.
-		All the dependencies, including the default/core deps and the ones added via `${EXTRA_BUILD_DEPS}`
+		All the dependencies, including the default/core deps and the ones added via the `EXTRA_BUILD_DEPS` array
 		are installed at this point. The system clock has not yet been synced.
 	HOST_DEPENDENCIES_READY
 

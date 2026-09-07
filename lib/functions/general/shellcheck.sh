@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
@@ -136,7 +136,7 @@ function try_download_shellcheck_tooling() {
 	display_alert "SHELLCHECK_BIN: ${SHELLCHECK_BIN}" "SHELLCHECK" "debug"
 
 	display_alert "Downloading required" "SHELLCHECK tooling${RETRY_FMT_MORE_THAN_ONCE}" "info"
-	run_host_command_logged wget --no-verbose --progress=dot:giga -O "${SHELLCHECK_BIN}.tar.xz.tmp" "${DOWN_URL}" || {
+	run_host_command_logged curl -fL#o "${SHELLCHECK_BIN}.tar.xz.tmp" "${DOWN_URL}" || {
 		return 1
 	}
 

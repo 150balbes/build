@@ -1,7 +1,9 @@
 # Rockchip RK3399 hexa core 4GB RAM SoC GBE eMMC USB3 USB-C WiFi/BT
 BOARD_NAME="Orange Pi 4"
+BOARD_VENDOR="xunlong"
 BOARDFAMILY="rockchip64" # Used to be rk3399
 BOARD_MAINTAINER="paolosabatino"
+INTRODUCED="2019"
 BOOTCONFIG="orangepi-4-rk3399_defconfig"
 KERNEL_TARGET="current,edge"
 KERNEL_TEST_TARGET="current"

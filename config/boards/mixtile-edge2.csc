@@ -1,8 +1,10 @@
 # Rockchip RK3568 quad core 4GB-8GB GBE PCIe USB3 SATA NVMe
 BOARD_NAME="Mixtile Edge 2"
+BOARD_VENDOR="mixtile"
 BOARDFAMILY="rk35xx"
 BOOTCONFIG="mixtile-edge2-rk3568_defconfig"
 BOARD_MAINTAINER=""
+INTRODUCED="2024"
 BOOT_SOC="rk3568"
 KERNEL_TARGET="current,edge,vendor"
 BOOT_FDT_FILE="rockchip/rk3568-mixtile-edge2.dtb"
@@ -20,10 +22,10 @@ function post_family_config__h96_max_use_mainline_uboot() {
 
 	display_alert "$BOARD" "Using mainline U-Boot for $BOARD / $BRANCH" "info"
 
-	declare -g BOOTCONFIG="generic-rk3568_defconfig"             # Use generic defconfig which should boot all RK3568 boards
-	declare -g BOOTSOURCE="https://github.com/u-boot/u-boot.git" # We ❤️ Mainline U-Boot
-	declare -g BOOTBRANCH="tag:v2024.07"
-	declare -g BOOTPATCHDIR="v2024.07/board_${BOARD}"
+	declare -g BOOTCONFIG="generic-rk3568_defconfig"
+	declare -g BOOTSOURCE="https://github.com/u-boot/u-boot.git"
+	declare -g BOOTBRANCH="tag:v2026.07"
+	declare -g BOOTPATCHDIR="v2026.07/board_${BOARD}"
 	declare -g BOOTDIR="u-boot-${BOARD}" # do not share u-boot directory
 
 	declare -g UBOOT_TARGET_MAP="BL31=${RKBIN_DIR}/${BL31_BLOB} ROCKCHIP_TPL=${RKBIN_DIR}/${DDR_BLOB};;u-boot-rockchip.bin"

@@ -164,15 +164,12 @@
 	patches.megous/arm64-dts-sun50i-h5-Add-missing-GPU-trip-point.patch
 	patches.megous/arm64-dts-allwinner-a64-Fix-LRADC-compatible.patch
 	patches.megous/ASoC-codec-es8316-DAC-Soft-Ramp-Rate-is-just-a-2-bit-control.patch
-	patches.megous/spi-rockchip-Fix-runtime-PM-and-other-issues.patch
-	patches.megous/spi-fixes.patch
-	patches.megous/media-cedrus-Fix-failure-to-clean-up-hardware-on-probe-failure.patch
 	patches.megous/ASoC-rockchip-Fix-doubling-of-playback-speed-after-system-sleep.patch
 	patches.megous/usb-musb-sunxi-Avoid-enabling-host-side-code-on-SoCs-where-it-s.patch
 	patches.megous/arm64-dts-allwinner-Enforce-consistent-MMC-numbering.patch
 	patches.megous/ARM-dts-sunxi-Add-aliases-for-MMC.patch
 	patches.megous/drm-rockchip-Fix-panic-on-reboot-when-DRM-device-fails-to-bind.patch
-	patches.megous/usb-gadget-Fix-dangling-pointer-in-netdev-private-data.patch
+-	patches.megous/usb-gadget-Fix-dangling-pointer-in-netdev-private-data.patch
 	patches.megous/mmc-dw-mmc-rockchip-fix-sdmmc-after-soft-reboot.patch
 	patches.megous/Revert-drm-sun4i-lvds-Invert-the-LVDS-polarity.patch
 	patches.megous/of-property-fw_devlink-Support-allwinner-sram-links.patch

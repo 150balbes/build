@@ -1,5 +1,6 @@
 # Rockchip RK3576 SoC octa core 8-64GB SoC GBe eMMC USB3 NvME WIFI
 BOARD_NAME="ArmSoM CM5 IO"
+BOARD_VENDOR="armsom"
 BOARDFAMILY="rk35xx"
 BOOTCONFIG="armsom-cm5-io-rk3576_defconfig"
 KERNEL_TARGET="vendor"
@@ -9,6 +10,7 @@ BOOT_FDT_FILE="rockchip/rk3576-armsom-cm5-io.dtb"
 BOOT_SCENARIO="spl-blobs"
 IMAGE_PARTITION_TABLE="gpt"
 BOARD_MAINTAINER=""
+INTRODUCED="2024"
 
 function post_family_tweaks__armsom-cm5-io_naming_audios() {
 	display_alert "$BOARD" "Renaming armsom-cm5 audios" "info"

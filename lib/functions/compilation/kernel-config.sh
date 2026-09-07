@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
@@ -69,6 +69,10 @@ function kernel_config_initialize() {
 		run_host_command_logged cp -pv "${kernel_config_source_filename}" "${kernel_work_dir}/.config"
 	fi
 
+	# Ensure .config ends with a newline; ./scripts/config appends via `echo >>` and
+	# silently concatenates the first added option with the last line otherwise.
+	sed -i -e '$a\' "${kernel_work_dir}/.config"
+
 	# Call the extensions. This is _also_ done during the kernel artifact's prepare_version, for consistent caching.
 	cd "${kernel_work_dir}" || exit_with_error "kernel_work_dir does not exist before call_extensions_kernel_config: ${kernel_work_dir}"
 	call_extensions_kernel_config
@@ -86,6 +90,20 @@ function kernel_config_initialize() {
 # These kernel config hooks are always called twice, once without being in kernel directory and once with current directory being the kernel work directory.
 # You must check with "if [[ -f .config ]]; then" in which of the two phases you are. Otherwise, functions like "kernel_config_set_y" won't work.
 function call_extensions_kernel_config() {
+	# Prepare arrays and dict for modifications.
+	# Those will be used by the hooks called below.
+	# shellcheck disable=SC2034
+	declare -A opts_val=()
+	# shellcheck disable=SC2034
+	declare -a opts_y=() opts_n=() opts_m=()
+
+	# kernel_config_set_* append to this array; ensure it exists globally so their
+	# changes survive for artifact versioning even when no caller pre-declared it.
+	if ! declare -p kernel_config_modifying_hashes > /dev/null 2>&1; then
+		# shellcheck disable=SC2034
+		declare -ga kernel_config_modifying_hashes=()
+	fi
+
 	# Run the core-armbian config modifications here, built-in extensions:
 	call_extension_method "armbian_kernel_config" <<- 'ARMBIAN_KERNEL_CONFIG'
 		*Armbian-core default hook point for pre-olddefconfig Kernel config modifications*
@@ -108,6 +126,93 @@ function call_extensions_kernel_config() {
 		Either way, the hook _must_ add representative changes to the `kernel_config_modifying_hashes` array, for kernel config hashing.
 		Please note: Manually changing options doesn't check the validity of the .config file. Check for warnings in your build log.
 	CUSTOM_KERNEL_CONFIG
+
+	# Apply the modifications set in the arrays/dict
+	armbian_kernel_config_apply_opts_from_arrays
+}
+
+# Rewrites the array named by ${1}, spelling every announced option with the CONFIG_ prefix.
+#
+# Hooks name options either way and scripts/config accepts both, so the two spellings mean the
+# same option and must collapse to one key before the last-assignment-wins reduction: otherwise
+# a hook that overrides an earlier one under the other spelling leaves both entries in the hash.
+function kernel_config_canonicalize_modifications() {
+	declare -n announcements="${1}"
+
+	declare -a canonical=()
+	declare entry
+	for entry in "${announcements[@]}"; do
+		# Announcements without a value (free-form markers such as `mod2noconfig`) name no option.
+		if [[ "${entry}" == *"="* ]] && [[ "${entry}" != CONFIG_* ]]; then
+			entry="CONFIG_${entry}"
+		fi
+		canonical+=("${entry}")
+	done
+
+	announcements=("${canonical[@]}")
+}
+
+# Removes announced kernel config modifications that the source config already declares.
+#
+# Hooks announce every option they touch, and those announcements feed the kernel artifact
+# version. An option set to the value the source config already carries produces the very same
+# kernel, yet still moves the version, and so cuts the board off from the published kernel debs.
+#
+# Reads and rewrites the array named by ${1}; ${2} is the source config file to compare against.
+# Announcements that are not `OPTION=value` pairs (free-form markers such as `mod2noconfig`)
+# carry nothing to compare and are always kept.
+function kernel_config_drop_modifications_matching_file() {
+	declare -n modifications="${1}"
+	declare config_file="${2}"
+
+	[[ -f "${config_file}" ]] || return 0
+
+	declare -A config_file_values=()
+	declare line key value
+	# Some tracked configs end without a newline, so take what read() leaves behind at EOF.
+	while IFS="" read -r line || [[ -n "${line}" ]]; do
+		case "${line}" in
+			CONFIG_*=*)
+				key="${line%%=*}"
+				value="${line#*=}"
+				;;
+			"# CONFIG_"*" is not set")
+				key="${line#\# }"
+				key="${key%% is not set}"
+				value="n"
+				;;
+			*)
+				continue
+				;;
+		esac
+		config_file_values["${key}"]="${value}"
+	done < "${config_file}"
+
+	declare -a kept=()
+	declare -i dropped=0
+	declare entry
+	for entry in "${modifications[@]}"; do
+		if [[ "${entry}" != *"="* ]]; then
+			kept+=("${entry}")
+			continue
+		fi
+		key="${entry%%=*}"
+		value="${entry#*=}"
+		# Hooks name options with or without the CONFIG_ prefix; scripts/config accepts both.
+		[[ "${key}" != CONFIG_* ]] && key="CONFIG_${key}"
+		if [[ -v "config_file_values[${key}]" ]] && [[ "${config_file_values[${key}]}" == "${value}" ]]; then
+			display_alert "Kernel config modification already in the source config" "${entry}" "debug"
+			dropped+=1
+			continue
+		fi
+		kept+=("${entry}")
+	done
+
+	if [[ ${dropped} -gt 0 ]]; then
+		display_alert "Kernel config modifications that change nothing" "${dropped} of ${#modifications[@]} ignored for versioning" "debug"
+	fi
+
+	modifications=("${kept[@]}")
 }
 
 function kernel_config_finalize() {
@@ -136,11 +241,12 @@ function kernel_config_export() {
 	# store kernel defconfig in easily reachable place (output dir)
 	mkdir -p "${DEST}"/config
 	display_alert "Exporting new kernel defconfig" "$DEST/config/$LINUXCONFIG.config" "info"
-	run_host_command_logged cp -pv defconfig "${DEST}/config/${LINUXCONFIG}.config"
+	echo "# Armbian defconfig generated with ${KERNEL_MAJOR_MINOR}" > "${DEST}/config/${LINUXCONFIG}.config"
+	run_host_command_logged cat defconfig >> "${DEST}/config/${LINUXCONFIG}.config"
 
 	# store back into original LINUXCONFIG too, if it came from there, so it's pending commits when done.
 	if [[ "${kernel_config_source_filename}" != "" ]]; then
 		display_alert "Exporting new kernel config - git commit pending" "${kernel_config_source_filename}" "info"
-		run_host_command_logged cp -pv defconfig "${kernel_config_source_filename}"
+		run_host_command_logged cp -pv "${DEST}/config/${LINUXCONFIG}.config" "${kernel_config_source_filename}"
 	fi
 }

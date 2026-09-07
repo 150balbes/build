@@ -1,7 +1,9 @@
 # Amlogic S922X hexa core 2GB/4GB RAM SoC 1.8-2.4Ghz eMMC GBE USB3 SPI RTC
 BOARD_NAME="Odroid N2L"
+BOARD_VENDOR="hardkernel"
 BOARDFAMILY="meson-g12b"
 BOARD_MAINTAINER=""
+INTRODUCED="2024"
 KERNEL_TARGET="current,edge"
 KERNEL_TEST_TARGET="current"
 MODULES_BLACKLIST="simpledrm" # SimpleDRM conflicts with Panfrost

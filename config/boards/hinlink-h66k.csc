@@ -1,7 +1,9 @@
 # Rockchip RK3568 quad core 1-8GB SoC 2.5GBe eMMC USB3
 BOARD_NAME="Hinlink H66K"
+BOARD_VENDOR="hinlink"
 BOARDFAMILY="rk35xx"
 BOARD_MAINTAINER=""
+INTRODUCED="2022"
 BOOTCONFIG="radxa-e25-rk3568_defconfig"
 KERNEL_TARGET="current,edge"
 KERNEL_TEST_TARGET="current"

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
@@ -18,20 +18,20 @@ function run_kernel_make_internal() {
 	prepare_distcc_compilation_config
 
 	common_make_envs=(
-		"CCACHE_BASEDIR=\"$(pwd)\""                                   # Base directory for ccache, for cache reuse # @TODO: experiment with this and the source path to maximize hit rate
-		"CCACHE_TEMPDIR=\"${CCACHE_TEMPDIR:?}\""                      # Temporary directory for ccache, under WORKDIR
-		"PATH=\"${toolchain}:${PYTHON3_INFO[USERBASE]}/bin:${PATH}\"" # Insert the toolchain and the pip binaries into the PATH
-		"PYTHONPATH=\"${PYTHON3_INFO[MODULES_PATH]}:${PYTHONPATH}\""  # Insert the pip modules downloaded by Armbian into PYTHONPATH (needed for dtb checks)
-		"DPKG_COLORS=always"                                          # Use colors for dpkg @TODO no dpkg is done anymore, remove?
-		"XZ_OPT='--threads=0'"                                        # Use parallel XZ compression
-		"TERM='${TERM}'"                                              # Pass the terminal type, so that 'make menuconfig' can work.
+		"CCACHE_BASEDIR='$(pwd)'"                                  # Base directory for ccache, for cache reuse # @TODO: experiment with this and the source path to maximize hit rate
+		"CCACHE_TEMPDIR='${CCACHE_TEMPDIR:?}'"                     # Temporary directory for ccache, under WORKDIR
+		"PATH='${PYTHON3_INFO[USERBASE]}/bin:${PATH}'"             # Insert the pip binaries into the PATH
+		"PYTHONPATH='${PYTHON3_INFO[MODULES_PATH]}:${PYTHONPATH}'" # Insert the pip modules downloaded by Armbian into PYTHONPATH (needed for dtb checks)
+		"DPKG_COLORS=always"                                       # Use colors for dpkg @TODO no dpkg is done anymore, remove?
+		"XZ_OPT='--threads=0'"                                     # Use parallel XZ compression
+		"TERM='${TERM}'"                                           # Pass the terminal type, so that 'make menuconfig' can work.
 		"COLUMNS='${COLUMNS:-160}'"
 		"COLORFGBG='${COLORFGBG}'"
 	)
 
 	# If CCACHE_DIR is set, pass it to the kernel build; Pass the ccache dir explicitly, since we'll run under "env -i"
 	if [[ -n "${CCACHE_DIR}" ]]; then
-		common_make_envs+=("CCACHE_DIR='${CCACHE_DIR}'")
+		common_make_envs+=("CCACHE_DIR=${CCACHE_DIR@Q}")
 	fi
 
 	# Add the distcc envs, if any.
@@ -40,7 +40,11 @@ function run_kernel_make_internal() {
 	if [[ "${KERNEL_COMPILER}" == "clang" ]]; then
 		llvm_flag="LLVM=1"
 		cc_name="CC"
-		extra_warnings="-Wno-error=unused-command-line-argument -Wno-error=unknown-warning-option" # downgrade errors to warnings
+		# Only suppress unused-command-line-argument errors
+		# Do NOT add -Wno-error=unknown-warning-option here - it breaks cc-option detection
+		# in kernel Makefiles (btrfs, drm, coresight) causing GCC-specific flags to be
+		# incorrectly added when building with clang
+		extra_warnings="-fcolor-diagnostics -Wno-error=unused-command-line-argument"
 	else
 		cc_name="CROSS_COMPILE"
 		extra_warnings=""
@@ -70,6 +74,27 @@ function run_kernel_make_internal() {
 		common_make_params_quoted+=("${llvm_flag}")
 	fi
 
+	# Hook order: kernel_make_config runs first (generic extension config),
+	# then custom_kernel_make_params (user/board overrides can take precedence).
+	call_extension_method "kernel_make_config" <<- 'KERNEL_MAKE_CONFIG'
+		*Hook to customize kernel make environment and parameters*
+		Called right before invoking make for kernel compilation.
+		Available arrays to modify:
+		  - common_make_envs[@]: environment variables passed via "env -i" (e.g., CCACHE_REMOTE_STORAGE)
+		  - common_make_params_quoted[@]: make command parameters (e.g., custom flags)
+		Available read-only variables:
+		  - KERNEL_COMPILER, ARCHITECTURE, BRANCH, LINUXFAMILY
+	KERNEL_MAKE_CONFIG
+
+	# Runs after kernel_make_config — allows user/board overrides to take precedence
+	call_extension_method "custom_kernel_make_params" <<- 'CUSTOM_KERNEL_MAKE_PARAMS'
+		*Customize kernel make parameters before compilation*
+		Called after all standard make parameters are set but before invoking make.
+		Extensions can modify the following arrays:
+		- `common_make_params_quoted` - parameters passed to make (e.g., CROSS_COMPILE_COMPAT)
+		- `common_make_envs` - environment variables for make
+	CUSTOM_KERNEL_MAKE_PARAMS
+
 	# last statement, so it passes the result to calling function. "env -i" is used for empty env
 	full_command=("${KERNEL_MAKE_RUNNER:-run_host_command_logged}" "env" "-i" "${common_make_envs[@]}"
 		make "${common_make_params_quoted[@]@Q}" "$@")
@@ -86,26 +111,36 @@ function run_kernel_make_dialog() {
 
 function run_kernel_make_long_running() {
 	local seconds_start=${SECONDS} # Bash has a builtin SECONDS that is seconds since start of script
-	KERNEL_MAKE_UNBUFFER="unbuffer" run_kernel_make_internal "$@"
+	local command_result=0
+	KERNEL_MAKE_UNBUFFER="unbuffer" run_kernel_make_internal "$@" || command_result=$?
 	display_alert "Kernel Make '$*' took" "$((SECONDS - seconds_start)) seconds" "debug"
+	return ${command_result}
 }
 
 function kernel_determine_toolchain() {
 	# compare with the architecture of the current Debian node
-	# if it matches we use the system compiler
 	if dpkg-architecture -e "${ARCH}"; then
 		display_alert "Native compilation" "target ${ARCH} on host $(dpkg --print-architecture)"
 	else
 		display_alert "Cross compilation" "target ${ARCH} on host $(dpkg --print-architecture)"
-		toolchain=$(find_toolchain "$KERNEL_COMPILER" "$KERNEL_USE_GCC")
-		[[ -z $toolchain ]] && exit_with_error "Could not find required toolchain" "${KERNEL_COMPILER}gcc $KERNEL_USE_GCC"
 	fi
 
+	declare kernel_compiler_full kernel_compiler_version
 	if [[ "${KERNEL_COMPILER}" == "clang" ]]; then
-		KERNEL_COMPILER_FULL="${KERNEL_COMPILER}"
+		kernel_compiler_full="${KERNEL_COMPILER}"
 	else
-		KERNEL_COMPILER_FULL="${KERNEL_COMPILER}gcc"
+		kernel_compiler_full="${KERNEL_COMPILER}gcc"
 	fi
-	kernel_compiler_version="$(eval env PATH="${toolchain}:${PATH}" "${KERNEL_COMPILER_FULL}" -dumpfullversion -dumpversion)"
-	display_alert "Compiler version" "${KERNEL_COMPILER_FULL} ${kernel_compiler_version}" "info"
+
+	# Fail fast with a readable message if the (cross-)compiler is missing, instead of
+	# letting the '-dumpversion' invocation below die with a cryptic
+	# "env: '${kernel_compiler_full}': No such file or directory" (Error 127). The common
+	# case is cross-building a target whose toolchain is unavailable on this host - e.g. an
+	# arm64 target on a riscv64 host, where gcc-aarch64-linux-gnu is not in the repositories.
+	if ! eval command -v "${kernel_compiler_full}" > /dev/null 2>&1; then
+		exit_with_error "Kernel compiler '${kernel_compiler_full}' not found for target ${ARCH} on host $(dpkg --print-architecture); its cross-toolchain is likely unavailable for this host architecture. Build on a supported host, use a Docker build, or install the toolchain."
+	fi
+
+	kernel_compiler_version="$(eval env "${kernel_compiler_full}" -dumpfullversion -dumpversion)"
+	display_alert "Compiler version" "${kernel_compiler_full} ${kernel_compiler_version}" "info"
 }

@@ -9,8 +9,8 @@
 enable_extension "sunxi-tools"
 declare -g ARCH=armhf
 declare -g BOOTDELAY=1
-declare -g BOOTPATCHDIR="${BOOTPATCHDIR:-"u-boot-sunxi"}"
-declare -g BOOTBRANCH="${BOOTBRANCH:-"tag:v2024.01"}"
+declare -g BOOTPATCHDIR="${BOOTPATCHDIR:-"v2026.07-sunxi"}"
+declare -g BOOTBRANCH="${BOOTBRANCH:-"tag:v2026.07"}"
 UBOOT_TARGET_MAP="${UBOOT_TARGET_MAP:-;;u-boot-sunxi-with-spl.bin}"
 declare -g BOOTSCRIPT="boot-sunxi.cmd:boot.cmd"
 declare -g BOOTENV_FILE='sunxi.txt'
@@ -26,18 +26,15 @@ source "${BASH_SOURCE%/*}/crust_firmware.inc"
 case $BRANCH in
 
 	legacy)
-		declare -g KERNEL_MAJOR_MINOR="6.6" # Major and minor versions of this kernel.
-		declare -g KERNELBRANCH="tag:v6.6.75" # frozen on this version
+		declare -g KERNEL_MAJOR_MINOR="6.12" # Major and minor versions of this kernel.
 		;;
 
 	current)
-		declare -g KERNEL_MAJOR_MINOR="6.12" # Major and minor versions of this kernel.
-		declare -g KERNELBRANCH="tag:v6.12.43"
+		declare -g KERNEL_MAJOR_MINOR="6.18" # Major and minor versions of this kernel.
 		;;
 
 	edge)
-		declare -g KERNEL_MAJOR_MINOR="6.15" # Major and minor versions of this kernel.
-		declare -g KERNELBRANCH="tag:v6.15.4"
+		declare -g KERNEL_MAJOR_MINOR="7.2" # Major and minor versions of this kernel.
 		;;
 esac
 

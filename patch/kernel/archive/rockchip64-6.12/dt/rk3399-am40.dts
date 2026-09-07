@@ -22,9 +22,9 @@
 		rtc0 = &pt7c4563;
 		/*
 		 * The rk808 circuit design on this board does not have the ability to maintain real-time time after a power outage.
-		 * Registering rk808 as rtc99 (most kernel configurations read time from rtc0) can prevent the kernel from reading the time (2013) from rk808 during startup.
+		 * Registering rk808 as rtc1 (most kernel configurations read time from rtc0) can prevent the kernel from reading the time (2013) from rk808 during startup.
 		 */
-		rtc99 = &rk808;
+		rtc1 = &rk808;
 	};
 
 	chosen {
@@ -184,7 +184,7 @@
 		compatible = "linux,extcon-usbc-virtual-pd";
 		pinctrl-names = "default";
 		pinctrl-0 = <&dp_hpd>;
-		det-gpios = <&gpio4 RK_PD1 GPIO_ACTIVE_LOW>;
+		det-gpios = <&gpio4 RK_PD1 GPIO_ACTIVE_HIGH>;
 		vpd-data-role = "display-port";
 		vpd-super-speed;
 	};
@@ -199,6 +199,7 @@
 			/* sound-dai = <&i2s2>; */
 			sound-dai = <&spdif>;
 		};
+
 		simple-audio-card,codec {
 			/* sound-dai = <&cdn_dp 0>; */
 			sound-dai = <&cdn_dp 1>;
@@ -252,7 +253,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		rtl8211f: rtl8211f@0 {
+		rtl8211f: ethernet-phy@0 {
 			reg = <0>;
 			reset-assert-us = <10000>;
 			reset-deassert-us = <30000>;
@@ -273,11 +274,11 @@
 	ddc-i2c-bus = <&i2c3>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&hdmi_cec>;
-	status = "disabled";
+	status = "okay";
 };
 
 &hdmi_sound {
-	status = "disabled";
+	status = "okay";
 };
 
 &i2c0 {
@@ -501,6 +502,12 @@
 	};
 };
 
+&i2c3 {
+	i2c-scl-falling-time-ns = <15>;
+	i2c-scl-rising-time-ns = <450>;
+	status = "okay";
+};
+
 &i2c4 {
 	status = "okay";
 	i2c-scl-rising-time-ns = <300>;
@@ -533,7 +540,7 @@
 
 &pcie0 {
 	ep-gpios = <&gpio0 RK_PB5 GPIO_ACTIVE_HIGH>;
-	num-lanes = <4>;
+	num-lanes = <2>;
 	pinctrl-0 = <&pcie_clkreqn>;
 	pinctrl-names = "default";
 	vpcie3v3-supply = <&vcc3v3_pcie>;
@@ -553,7 +560,7 @@
 
 	display {
 		dp_hpd: dp-hpd {
-			rockchip,pins = <4 RK_PD1 RK_FUNC_GPIO &pcfg_input_pull_up>;
+			rockchip,pins = <4 RK_PD1 RK_FUNC_GPIO &pcfg_input_enable>;
 		};
 
 		front_hdmi_5v_en: front-hdmi-5v-en {
@@ -607,8 +614,8 @@
 		};
 	};
 
-	usb2 {
-		vcc5v0_host_en: vcc5v0-hots-en {
+	usb {
+		vcc5v0_host_en: vcc5v0-host-en {
 			rockchip,pins = <1 RK_PA3 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 
@@ -685,6 +692,10 @@
 &u2phy0 {
 	status = "okay";
 
+	u2phy0_otg: otg-port {
+		status = "okay";
+	};
+
 	u2phy0_host: host-port {
 		phy-supply = <&vcc5v0_host>;
 		status = "okay";
@@ -693,6 +704,10 @@
 
 &u2phy1 {
 	status = "okay";
+
+	u2phy1_otg: otg-port {
+		status = "okay";
+	};
 
 	u2phy1_host: host-port {
 		phy-supply = <&vcc5v0_host>;

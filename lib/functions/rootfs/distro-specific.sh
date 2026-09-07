@@ -2,13 +2,18 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
 
 function install_distribution_specific() {
 	display_alert "Applying distribution specific tweaks for" "${RELEASE:-}" "info"
+
+	call_extension_method "pre_install_distribution_specific" "config_pre_install_distribution_specific" <<- 'PRE_INSTALL_DISTRIBUTION_SPECIFIC'
+		*give config a chance to act before install_distribution_specific*
+		Called after `create_rootfs_cache` (_prepare basic rootfs: unpack cache or create from scratch_) but before `install_distribution_specific` (_install distribution and board specific applications_).
+	PRE_INSTALL_DISTRIBUTION_SPECIFIC
 
 	# disable broken service, the problem is in default misconfiguration
 	disable_systemd_service_sdcard smartmontools.service smartd.service
@@ -35,6 +40,26 @@ function install_distribution_specific() {
 		truncate --size=0 "${SDCARD}"/etc/apt/apt.conf.d/20apt-esm-hook.conf
 	fi
 
+	# Add power-management override.
+	# Suspend / hibernate / hybrid-sleep are known to be unreliable or completely
+	# non-functional on the majority of single board computers due to incomplete
+	# vendor kernels, broken device drivers, or lack of proper firmware support.
+	# To avoid random lockups, data loss, or boards failing to wake up, we disable
+	# all systemd sleep modes by default.
+	# Users who understand the risks and have hardware that supports stable sleep
+	# states can re-enable them by setting:
+	#     POWER_MANAGEMENT_FEATURES=yes
+	if [[ "${POWER_MANAGEMENT_FEATURES:-"no"}" != "yes" ]]; then
+		mkdir -p "${SDCARD}/etc/systemd/sleep.conf.d"
+		cat <<- EOF > "${SDCARD}/etc/systemd/sleep.conf.d/00-disable.conf"
+			[Sleep]
+			AllowSuspend=no
+			AllowHibernation=no
+			AllowHybridSleep=no
+			AllowSuspendThenHibernate=no
+		EOF
+	fi
+
 	# install our base-files package (this replaces the original from Debian/Ubuntu)
 	if [[ "${KEEP_ORIGINAL_OS_RELEASE:-"no"}" != "yes" ]]; then
 		install_artifact_deb_chroot "armbian-base-files" "--allow-downgrades"
@@ -59,17 +84,96 @@ function install_distribution_specific() {
 	install_rclocal
 
 	# use list modules INITRAMFS
-	if [ -f "${SRC}"/config/modules/"${MODULES_INITRD}" ]; then
+	if [[ -f "${SRC}/config/modules/${MODULES_INITRD}" ]]; then
 		display_alert "Use file list modules MODULES_INITRD" "${MODULES_INITRD}"
 		sed -i "s/^MODULES=.*/MODULES=list/" "${SDCARD}"/etc/initramfs-tools/initramfs.conf
 		cat "${SRC}"/config/modules/"${MODULES_INITRD}" >> "${SDCARD}"/etc/initramfs-tools/modules
 	fi
 }
 
+#fetch_distro_keyring <release>
+#
+# <release>: debian or ubuntu release name
+#
+function fetch_distro_keyring() {
+	declare release="${1}"
+	declare distro=""
+
+	case $release in
+		buster | bullseye | bookworm | trixie | forky | sid)
+			distro="debian"
+			;;
+		focal | jammy | noble | oracular | plucky | questing | resolute)
+			distro="ubuntu"
+			;;
+		*)
+			exit_with_error "fetch_distro_keyring failed" "unrecognized release: $release"
+			;;
+	esac
+
+	CACHEDIR="/armbian/cache/keyrings/$distro"
+	mkdir -p "${CACHEDIR}"
+	case $distro in
+		#FIXME: there may be a point where we need an *older* keyring pkg
+		# NOTE: this will be most likely an unsupported case like a user wanting to build using an ancient debian/ubuntu release
+		debian)
+			if [[ -e "${CACHEDIR}/debian-archive-keyring.gpg" ]]; then
+				display_alert "fetch_distro_keyring($release)" "cache found, skipping" "info"
+			else
+				# for details of how this gets into this mirror, see
+				# github.com/armbian/armbian.github.io/ .github/workflows/generate-keyring-data.yaml
+				for p in debian-archive-keyring debian-ports-archive-keyring; do
+					# if we use http://, we'll get a 301 to https://, but this means we can't use a caching proxy like ACNG
+					PKG_URL="https://github.armbian.com/keyrings/latest-${p}.deb"
+					run_host_command_logged curl -fLOJ --output-dir "${CACHEDIR}" "${PKG_URL}" ||
+						exit_with_error "fetch_distro_keyring failed" "unable to download ${PKG_URL}"
+					KEYRING_DEB=$(basename "${PKG_URL}")
+					# We ignore errors from dpkg-deb/tar b/c we cannot tell the difference between unpack failures and chmod/chgrp failures
+					dpkg-deb -x "${CACHEDIR}/${KEYRING_DEB}" "${CACHEDIR}" || /bin/true # ignore failures, we'll check a few lines down
+					if [[ -e "${CACHEDIR}/usr/share/keyrings/${p}.pgp" ]]; then
+						# yes, the canonical name is .pgp, but our tools expect .gpg.
+						# the package contains the .pgp and a .gpg symlink to it.
+						cp -l "${CACHEDIR}/usr/share/keyrings/${p}.pgp" "${CACHEDIR}/${p}.gpg"
+					elif [[ -e "${CACHEDIR}/usr/share/keyrings/${p}.gpg" ]]; then
+						cp -l "${CACHEDIR}/usr/share/keyrings/${p}.gpg" "${CACHEDIR}/${p}.gpg"
+					else
+						exit_with_error "fetch_distro_keyring" "unable to find ${p}.gpg"
+					fi
+				done
+				display_alert "fetch_distro_keyring($release)" "extracted" "info"
+			fi
+			;;
+		ubuntu)
+			if [[ -e "${CACHEDIR}/ubuntu-archive-keyring.gpg" ]]; then
+				display_alert "fetch_distro_keyring($release)" "cache found, skipping" "info"
+			else
+				PKG_URL="https://github.armbian.com/keyrings/latest-ubuntu-keyring.deb"
+				run_host_command_logged curl -fLOJ --output-dir "${CACHEDIR}" "${PKG_URL}" ||
+					exit_with_error "fetch_distro_keyring failed" "unable to download ${PKG_URL}"
+				KEYRING_DEB=$(basename "${PKG_URL}")
+				dpkg-deb -x "${CACHEDIR}/${KEYRING_DEB}" "${CACHEDIR}" || /bin/true # see above in debian block about ignoring errors
+				if [[ ! -e "${CACHEDIR}/usr/share/keyrings/ubuntu-archive-keyring.gpg" ]]; then
+					exit_with_error "fetch_distro_keyring" "unable to find ubuntu-archive-keyring.gpg"
+				fi
+				cp -l "${CACHEDIR}/usr/share/keyrings/ubuntu-archive-keyring.gpg" "${CACHEDIR}/"
+				display_alert "fetch_distro_keyring($release)" "extracted" "info"
+			fi
+			debootstrap_arguments+=("--keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg")
+			;;
+		*)
+			exit_with_error "fetch_distro_keyring" "unrecognized distro: $distro"
+			;;
+	esac
+	# cp -l may break here if it's cross-filesystem
+	# copy everything to the "host" inside the container
+	cp -r "${CACHEDIR}"/{etc,usr} / || exit_with_error "fetch_distro_keyring" "failed to copy keyrings to host"
+	debootstrap_arguments+=("--setup-hook='copy-in ${CACHEDIR}/usr ${CACHEDIR}/etc /'")
+}
+
 # create_sources_list_and_deploy_repo_key <when> <release> <basedir>
 #
 # <when>: rootfs|image
-# <release>: bullseye|bookworm|sid|focal|jammy|noble|oracular|plucky
+# <release>: bullseye|bookworm|trixie|forky|sid|focal|jammy|noble|oracular|plucky|questing|resolute
 # <basedir>: path to root directory
 #
 function create_sources_list_and_deploy_repo_key() {
@@ -85,7 +189,7 @@ function create_sources_list_and_deploy_repo_key() {
 
 	# Add upstream (Debian/Ubuntu) APT repository
 	case $release in
-		buster | bullseye | bookworm | trixie)
+		buster | bullseye | bookworm | trixie | forky)
 			distro="debian"
 
 			declare -a suites=("${release}" "${release}-updates")
@@ -99,21 +203,21 @@ function create_sources_list_and_deploy_repo_key() {
 			fi
 
 			cat <<- EOF > "${basedir}/etc/apt/sources.list.d/${distro}.sources"
-			Types: deb
-			URIs: http://${DEBIAN_MIRROR}
-			Suites: ${suites[@]}
-			Components: ${components[@]}
-			Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-			EOF
-
-			if [ ${#security_suites[@]} -gt 0 ]; then
-				echo "" >> "${basedir}/etc/apt/sources.list.d/${distro}.sources" # it breaks if there is no line space in between
-				cat <<- EOF >> "${basedir}/etc/apt/sources.list.d/${distro}.sources"
 				Types: deb
-				URIs: http://${DEBIAN_SECURITY}
-				Suites: ${security_suites[@]}
+				URIs: http://${DEBIAN_MIRROR}
+				Suites: ${suites[@]}
 				Components: ${components[@]}
 				Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+			EOF
+
+			if [[ ${#security_suites[@]} -gt 0 ]]; then
+				echo "" >> "${basedir}/etc/apt/sources.list.d/${distro}.sources" # it breaks if there is no line space in between
+				cat <<- EOF >> "${basedir}/etc/apt/sources.list.d/${distro}.sources"
+					Types: deb
+					URIs: http://${DEBIAN_SECURITY}
+					Suites: ${security_suites[@]}
+					Components: ${components[@]}
+					Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 				EOF
 			fi
 			;;
@@ -121,19 +225,16 @@ function create_sources_list_and_deploy_repo_key() {
 		sid | unstable)
 			distro="debian"
 
-			if [[ "${ARCH}" == loong64 ]]; then
-				# loong64 is using debian-ports repo, we can change it to default after debian supports it officially
-				keyring_filename=/usr/share/keyrings/debian-ports-archive-keyring.gpg
-			else
-				keyring_filename=/usr/share/keyrings/debian-archive-keyring.gpg
-			fi
+			# loong64 was promoted from debian-ports into the main Debian archive, so
+			# it uses the standard keyring like every other architecture.
+			keyring_filename=/usr/share/keyrings/debian-archive-keyring.gpg
 			# sid is permanent unstable development and has no such thing as updates or security
 			cat <<- EOF > "${basedir}/etc/apt/sources.list.d/${distro}.sources"
-			Types: deb
-			URIs: http://${DEBIAN_MIRROR}
-			Suites: ${release}
-			Components: main contrib non-free non-free-firmware
-			Signed-By: ${keyring_filename}
+				Types: deb
+				URIs: http://${DEBIAN_MIRROR}
+				Suites: ${release}
+				Components: main contrib non-free non-free-firmware
+				Signed-By: ${keyring_filename}
 			EOF
 
 			# Required for some packages on riscv64.
@@ -141,25 +242,25 @@ function create_sources_list_and_deploy_repo_key() {
 			if [[ "${ARCH}" == riscv64 ]]; then
 				cat <<- EOF >> "${basedir}/etc/apt/sources.list.d/${distro}.sources"
 
-				Types: deb
-				URIs: http://deb.debian.org/debian-ports/
-				Suites: ${release}
-				Components: main
-				Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-				Architectures: riscv64
+					Types: deb
+					URIs: http://deb.debian.org/debian-ports/
+					Suites: ${release}
+					Components: main
+					Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+					Architectures: riscv64
 				EOF
 			fi
 			;;
 
-		focal | jammy | noble | oracular | plucky)
+		focal | jammy | noble | oracular | plucky | questing | resolute)
 			distro="ubuntu"
 
 			cat <<- EOF > "${basedir}/etc/apt/sources.list.d/${distro}.sources"
-			Types: deb
-			URIs: http://${UBUNTU_MIRROR}
-			Suites: ${release} ${release}-security ${release}-updates ${release}-backports
-			Components: main restricted universe multiverse
-			Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+				Types: deb
+				URIs: http://${UBUNTU_MIRROR}
+				Suites: ${release} ${release}-security ${release}-updates ${release}-backports
+				Components: main restricted universe multiverse
+				Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 			EOF
 			;;
 	esac
@@ -169,19 +270,25 @@ function create_sources_list_and_deploy_repo_key() {
 	mkdir -p "${basedir}"/usr/share/keyrings
 	# change to binary form
 	APT_SIGNING_KEY_FILE="/usr/share/keyrings/armbian-archive-keyring.gpg"
-	gpg --batch --yes --dearmor < "${SRC}"/config/armbian.key > "${basedir}${APT_SIGNING_KEY_FILE}"
+	# Use a temporary GPG homedir so we don't touch the builder's
+	# ~/.gnupg (which may be owned by a different user when running
+	# under sudo, producing "unsafe ownership on homedir" warnings).
+	local gpg_tmp
+	gpg_tmp=$(mktemp -d)
+	gpg --homedir "${gpg_tmp}" --batch --yes --dearmor < "${SRC}"/config/armbian.key > "${basedir}${APT_SIGNING_KEY_FILE}"
+	rm -rf "${gpg_tmp}"
 
 	# deploy the qemu binary, no matter where the rootfs came from (built or cached)
 	deploy_qemu_binary_to_chroot "${basedir}" "${when}" # undeployed at end of this function
 
 	# lets link to the old file as armbian-config uses it and we can't set there to new file
 	# we user force linking as some old caches still exists
-	chroot "${basedir}" /bin/bash -c "ln -fs armbian-archive-keyring.gpg /usr/share/keyrings/armbian.gpg"
+	LC_ALL="C" LANG="C" LANGUAGE="" SUDO_USER="" chroot "${basedir}" /bin/bash -c "ln -fs armbian-archive-keyring.gpg /usr/share/keyrings/armbian.gpg"
 
 	# lets keep old way for old distributions
 	if [[ "${RELEASE}" =~ (focal|bullseye) ]]; then
 		cp "${SRC}"/config/armbian.key "${basedir}"
-		chroot "${basedir}" /bin/bash -c "cat armbian.key | apt-key add - > /dev/null 2>&1"
+		LC_ALL="C" LANG="C" LANGUAGE="" SUDO_USER="" chroot "${basedir}" /bin/bash -c "cat armbian.key | apt-key add - > /dev/null 2>&1"
 	fi
 
 	# undeploy the qemu binary from the image; we don't want to ship the host's qemu in the target image
@@ -208,11 +315,11 @@ function create_sources_list_and_deploy_repo_key() {
 		armbian_mirror="beta.armbian.com"
 	fi
 	cat <<- EOF > "${basedir}"/etc/apt/sources.list.d/armbian.sources
-	Types: deb
-	URIs: http://${armbian_mirror}
-	Suites: $RELEASE
-	Components: ${components[*]}
-	Signed-By: ${APT_SIGNING_KEY_FILE}
+		Types: deb
+		URIs: http://${armbian_mirror}
+		Suites: $RELEASE
+		Components: ${components[*]}
+		Signed-By: ${APT_SIGNING_KEY_FILE}
 	EOF
 
 	# disable repo if DISTRIBUTION_STATUS==eos, or if SKIP_ARMBIAN_REPO==yes, or if when==image-early.

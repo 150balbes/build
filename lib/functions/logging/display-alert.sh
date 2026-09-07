@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
@@ -146,6 +146,13 @@ function display_alert() {
 			level_indicator="🚸"
 			inline_logs_color="\e[1;35m"
 			ci_log="warning"
+			;;
+
+		notice)
+			level="notice"
+			level_indicator="🥦"
+			inline_logs_color="\e[1;32m"
+			ci_log="notice"
 			;;
 
 		ext)

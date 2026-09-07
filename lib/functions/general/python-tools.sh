@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
@@ -42,7 +42,8 @@ function prepare_python_and_pip() {
 
 	declare python3_version_majorminor python3_version_string
 	# Extract the major and minor version numbers (e.g., "3.12" instead of "3.12.2")
-	python3_version_majorminor=$(echo "${python3_version_full}" | awk '{print $2}' | cut -d. -f1,2)
+	declare _py_ver_triplet="${python3_version_full#* }" # strip "Python " prefix → "3.12.2"
+	python3_version_majorminor="${_py_ver_triplet%.*}"   # strip ".PATCH" suffix → "3.12"
 	# Construct the version string (e.g., "python3.12")
 	python3_version_string="python$python3_version_majorminor"
 
@@ -62,7 +63,7 @@ function prepare_python_and_pip() {
 	display_alert "pip3 version" "${pip3_version_number}" "info"
 
 	# Calculate the hash for the Pip requirements
-	python3_pip_dependencies_hash="$(echo "${HOSTRELEASE}" "${python3_version}" "${pip3_version_number}" "$(cat "${python3_pip_dependencies_path}")" | sha256sum | cut -d' ' -f1)"
+	python3_pip_dependencies_hash="$(echo "${HOSTRELEASE}" "${python3_version}" "${pip3_version_number}" "$(< "${python3_pip_dependencies_path}")" | sha256sum | cut -d' ' -f1)"
 
 	declare non_cache_dir="/armbian-pip"
 	declare python_pip_cache="${SRC}/cache/pip"
@@ -107,7 +108,7 @@ function prepare_python_and_pip() {
 		"PYTHONUSERBASE=${PYTHON3_INFO[USERBASE]}"
 		"PYTHONUNBUFFERED=yes"
 		"PYTHONPYCACHEPREFIX=${PYTHON3_INFO[PYCACHEPREFIX]}"
-		"PATH=\"${toolchain}:${PYTHON3_INFO[USERBASE]}/bin:${PATH}\"" # add toolchain to PATH to make building wheels work
+		"PATH='${PYTHON3_INFO[USERBASE]}/bin:${PATH}'"
 	)
 
 	# If the hash file exists, we're done.
@@ -126,11 +127,22 @@ function prepare_python_and_pip() {
 
 		# Install pip, using get-pip.py; that bootstraps pip using an embedded, temporary, pip contained in get-pip.py
 		display_alert "Installing pip using get-pip.py" "${pip3_version_number}" "info"
-		run_host_command_logged env -i "${PYTHON3_VARS[@]@Q}" "${PYTHON3_INFO[BIN]}" "${PYTHON3_INFO[GET_PIP_BIN]}" "${pip3_extra_args[@]}" "pip==${pip3_version_number}"
+		declare -a python_proxy_env=(
+			"http_proxy=${http_proxy:-${HTTP_PROXY:-}}"
+			"https_proxy=${https_proxy:-${HTTPS_PROXY:-}}"
+			"HTTP_PROXY=${HTTP_PROXY:-${http_proxy:-}}"
+			"HTTPS_PROXY=${HTTPS_PROXY:-${https_proxy:-}}"
+			"ftp_proxy=${ftp_proxy:-${FTP_PROXY:-}}"
+			"FTP_PROXY=${FTP_PROXY:-${ftp_proxy:-}}"
+			"no_proxy=${no_proxy:-${NO_PROXY:-}}"
+			"NO_PROXY=${NO_PROXY:-${no_proxy:-}}"
+			"APT_PROXY_ADDR=${APT_PROXY_ADDR:-}"
+		)
+		run_host_command_logged env -i "${python_proxy_env[@]@Q}" "${PYTHON3_VARS[@]@Q}" "${PYTHON3_INFO[BIN]}" "${PYTHON3_INFO[GET_PIP_BIN]}" "${pip3_extra_args[@]}" "pip==${pip3_version_number}"
 
 		# Install the dependencies
 		display_alert "Installing Python dependencies" "from ${python3_pip_dependencies_path}" "info"
-		run_host_command_logged env -i "${PYTHON3_VARS[@]@Q}" "${PYTHON3_INFO[BIN]}" -m pip install "${pip3_extra_args[@]}" -r "${python3_pip_dependencies_path}"
+		run_host_command_logged env -i "${python_proxy_env[@]@Q}" "${PYTHON3_VARS[@]@Q}" "${PYTHON3_INFO[BIN]}" -m pip install "${pip3_extra_args[@]}" -r "${python3_pip_dependencies_path}"
 
 		# Create the hash file
 		run_host_command_logged touch "${python_hash_file}"
@@ -149,7 +161,7 @@ function host_deps_add_extra_python() {
 	# Determine what version of python3;  focal-like OS's have Python 3.8, but we need 3.9.
 	if [[ "focal ulyana ulyssa uma una" == *"${host_release}"* ]]; then
 		display_alert "Using Python 3.9 for" "hostdeps: '${host_release}' has outdated python3, using python3.9" "warn"
-		host_dependencies+=("python3.9-dev")
+		host_dependencies+=("python::python3.9-dev")
 	else
 		display_alert "Using Python3 for" "hostdeps: '${host_release}' has python3 >= 3.9" "debug"
 	fi

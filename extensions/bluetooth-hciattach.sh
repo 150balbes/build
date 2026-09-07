@@ -1,3 +1,5 @@
+# @description Configures Bluetooth on boards that need manual `hciattach` serial attachment. Adds the `bluetooth`/`bluez` packages and installs a systemd service running `rfkill unblock` plus `hciattach` with `BLUETOOTH_HCIATTACH_PARAMS`/`BLUETOOTH_HCIATTACH_RKFILL_NUM`. Only deployed on `vendor*`/`legacy*` BSP branches, since mainline kernels bind Bluetooth via serdev.
+
 #
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (c) 2023 Ricardo Pardini <ricardo@pardini.net>
@@ -29,6 +31,14 @@ function post_family_config__bluetooth_hciattach_add_bluetooth_packages() {
 
 # Deploy the script and the systemd service in the BSP. It'll be enabled below in the image.
 function post_family_tweaks_bsp__bluetooth_hciattach_add_systemd_service() {
+	# hciattach is only needed on BSP kernels. On mainline branches (edge, current,
+	# bleedingedge) the kernel binds BT via serdev, so the service is redundant and
+	# fails on every boot. Only deploy on vendor*/legacy* (BSP) branches.
+	if [[ "${BRANCH}" != vendor* && "${BRANCH}" != legacy* ]]; then
+		display_alert "Extension: ${EXTENSION}: ${BOARD}" "skipping hciattach service on non-BSP branch '${BRANCH}' (kernel binds BT via serdev)" "info"
+		return 0
+	fi
+
 	display_alert "Extension: ${EXTENSION}: ${BOARD}" "adding bluetooth hciattach service to BSP" "info"
 	: "${destination:?destination is not set}"
 
@@ -61,6 +71,12 @@ function post_family_tweaks_bsp__bluetooth_hciattach_add_systemd_service() {
 
 # Enable the service created in the BSP above.
 function post_family_tweaks__bluetooth_hciattach_enable_bt_service_in_image() {
+	# Match the deploy guard above: the service only exists on vendor*/legacy* (BSP)
+	# branches, so only enable it there. Nothing to enable on mainline branches.
+	if [[ "${BRANCH}" != vendor* && "${BRANCH}" != legacy* ]]; then
+		return 0
+	fi
+
 	display_alert "Extension: ${EXTENSION}: ${BOARD}" "enabling bluetooth hciattach service in the image" "info"
 
 	chroot_sdcard systemctl --no-reload enable "bluetooth-hciattach.service"

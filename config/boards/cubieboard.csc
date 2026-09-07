@@ -1,7 +1,9 @@
 # Allwinner A10 single core 1Gb SoC 1xSATA
 BOARD_NAME="Cubieboard 1"
+BOARD_VENDOR="cubietech"
 BOARDFAMILY="sun4i"
 BOARD_MAINTAINER=""
+INTRODUCED="2012"
 BOOTCONFIG="Cubieboard_config"
 HAS_VIDEO_OUTPUT="no"
 KERNEL_TARGET="current,edge,legacy"

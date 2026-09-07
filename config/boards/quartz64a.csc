@@ -1,7 +1,9 @@
 # Rockchip RK3566 quad core 4GB-8GB GBE PCIe USB3
 BOARD_NAME="Pine Quartz64 A"
+BOARD_VENDOR="pine64"
 BOARDFAMILY="rockchip64"
 BOARD_MAINTAINER=""
+INTRODUCED="2021"
 BOOT_SOC="rk3566"
 BOOTCONFIG="quartz64-a-rk3566_defconfig"
 KERNEL_TARGET="current,edge"
@@ -15,10 +17,10 @@ IMAGE_PARTITION_TABLE="gpt"
 function post_family_config__quartz64_a_use_mainline_uboot() {
 	display_alert "$BOARD" "Using mainline U-Boot for $BOARD / $BRANCH" "info"
 
-	declare -g BOOTSOURCE="https://github.com/u-boot/u-boot.git" # We ❤️ Mainline U-Boot
+	declare -g BOOTSOURCE="https://github.com/u-boot/u-boot.git"
 	declare -g BOOTBRANCH="tag:v2025.04"
 	declare -g BOOTPATCHDIR="v2025.04"
-	declare -g BOOTDELAY=1 # Wait for UART interrupt to enter UMS/RockUSB mode etc
+	declare -g BOOTDELAY=1
 
 	declare -g UBOOT_TARGET_MAP="BL31=${RKBIN_DIR}/${BL31_BLOB} ROCKCHIP_TPL=${RKBIN_DIR}/${DDR_BLOB};;u-boot-rockchip.bin"
 

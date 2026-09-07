@@ -1,3 +1,5 @@
+# @description Builds Radxa's `rkdeveloptool` and flashes the freshly built image to a connected Rockchip device over USB. Enables `rkbin-tools` for the `ROCKUSB_BLOB` SPL loader, waits for the board, switches Maskrom to Loader mode, writes the image (`wl`), then resets it. Cannot run under Docker.
+
 #
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (c) 2023 Ricardo Pardini <ricardo@pardini.net>
@@ -15,7 +17,7 @@ enable_extension "rkbin-tools" # which brings in the needed loader binaries for 
 
 function add_host_dependencies__rkdevflash() {
 	display_alert "Preparing rkdevflash host-side dependencies" "${EXTENSION}" "info"
-	declare -g EXTRA_BUILD_DEPS="${EXTRA_BUILD_DEPS} libudev-dev libusb-1.0-0-dev dh-autoreconf build-essential" # @TODO: convert to array later
+	EXTRA_BUILD_DEPS+=("build-tools::libudev-dev" "build-tools::libusb-1.0-0-dev" "native-toolchain::dh-autoreconf" "native-toolchain::build-essential")
 }
 
 function extension_finish_config__900_rkdevflash() {

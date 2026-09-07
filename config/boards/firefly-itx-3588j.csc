@@ -1,7 +1,9 @@
 # Rockchip RK3588j Octa core 4GB-32GB eMMC GBE HDMI HDMI-IN PCIe SATA USB3 WiFi 4G 5G
 BOARD_NAME="Firefly ITX-3588J"
+BOARD_VENDOR="firefly"
 BOARDFAMILY="rockchip-rk3588"
 BOARD_MAINTAINER="SeeleVolleri"
+INTRODUCED="2023"
 BOOTCONFIG="rock-5b-rk3588_defconfig"
 KERNEL_TARGET="vendor"
 BOOT_FDT_FILE="rockchip/rk3588-firefly-itx-3588j.dtb"

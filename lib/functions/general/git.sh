@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
@@ -57,7 +57,23 @@ function git_ensure_safe_directory() {
 		local git_dir="$1"
 		if [[ -e "$1/.git" ]]; then
 			display_alert "git: Marking all directories as safe, which should include" "$git_dir" "debug"
-			git config --global --get safe.directory "$1" > /dev/null || regular_git config --global --add safe.directory "$1"
+			# NB: 'git config --get safe.directory <path>' treats <path> as a
+			# regex, so a shorter path (…/amlogic-boot-fip) spuriously matches an
+			# already-added longer one (…/amlogic-boot-fip-jethub) and we skip
+			# adding it -> later "dubious ownership". Compare values literally.
+			local existing found=no
+			# Suppress only the two benign exit codes from --get-all: 1 when the key is
+			# unset (first run) and 141 (SIGPIPE) when the loop's 'break' closes the pipe
+			# early. Both are the last command in this '<(…)' process-substitution
+			# subshell, which inherits the framework's errtrace ERR trap and would
+			# otherwise emit a spurious "Error occurred in SUBSHELL git.sh" annotation.
+			# Any other exit code is a real git config failure and is deliberately left
+			# to trip the ERR trap (unlike a blanket '|| true', which would hide it).
+			while IFS= read -r existing; do
+				[[ "$existing" == "$git_dir" ]] && { found=yes; break; }
+			done < <(git config --global --get-all safe.directory 2> /dev/null \
+				|| { rc=$?; [[ "$rc" == 1 || "$rc" == 141 ]]; })
+			[[ "$found" == yes ]] || regular_git config --global --add safe.directory "$git_dir"
 		fi
 	else
 		display_alert "git not installed" "a true wonder how you got this far without git - it will be installed for you" "warn"
@@ -86,7 +102,9 @@ function fetch_from_repo() {
 	local git_work_dir
 
 	# Set GitHub mirror before anything else touches $url
-	url="$(echo "$url" | sed "s|^https://github.com/|${GITHUB_SOURCE}/|")"
+	if [[ "${url}" == https://github.com/* ]]; then
+		url="${GITHUB_SOURCE}/${url#https://github.com/}"
+	fi
 
 	# The 'offline' variable must always be set to 'true' or 'false'
 	local offline=false
@@ -252,9 +270,14 @@ function fetch_from_repo() {
 		esac
 	fi
 
-	if [[ -f "${SRC}"/config/sources/git_sources.json && $ref_type == "branch" ]]; then
-		cached_revision=$(jq --raw-output '.[] | select(.source == "'$url'" and .branch == "'$ref_name'") |.sha1' "${SRC}"/config/sources/git_sources.json)
-		[[ -z "${cached_revision}" ]] || fetched_revision=${cached_revision}
+	if [[ "${ref_type}" == "branch" ]]; then
+		declare cached_revision
+		cached_revision="$(_git_sources_pinned_sha1 "${url}" "${ref_name}")"
+		if [[ "${cached_revision}" =~ ^[0-9a-f]{40}$ ]]; then
+			fetched_revision="${cached_revision}"
+		elif [[ -n "${cached_revision}" ]]; then
+			exit_with_error "Invalid pinned SHA1 '${cached_revision}' for '${url}' '${ref_name}' in config/sources/git_sources.json"
+		fi
 	fi
 
 	if [[ "${do_checkout:-"yes"}" == "yes" ]]; then
@@ -276,20 +299,34 @@ function fetch_from_repo() {
 			else
 				display_alert "Updating submodules" "" "ext"
 				# FML: http://stackoverflow.com/a/17692710
-				for i in $(git config -f .gitmodules --get-regexp path | awk '{ print $2 }'); do
+				while read -r key path; do
+					# key is like: submodule.libfoo.path
+					# extract "libfoo" from "submodule.libfoo.path"
+					local name=${key#submodule.} # -> libfoo.path
+					name=${name%.path}           # -> libfoo
+
 					cd "${git_work_dir}" || exit
+
 					local surl sref
-					surl=$(git config -f .gitmodules --get "submodule.$i.url")
-					sref=$(git config -f .gitmodules --get "submodule.$i.branch" || true)
+					surl=$(git config -f .gitmodules --get "submodule.${name}.url")
+					sref=$(git config -f .gitmodules --get "submodule.${name}.branch" || true)
+
 					if [[ -n $sref ]]; then
 						sref="branch:$sref"
 					else
 						sref="head"
 					fi
-					display_alert "Updating submodule" "$i - $surl - $sref" "git"
-					git_ensure_safe_directory "$workdir/$i"
-					fetch_from_repo "$surl" "$workdir/$i" "$sref"
-				done
+
+					display_alert "Updating submodule" "${name} - ${surl} - ${sref}" "git"
+					git_ensure_safe_directory "$workdir/$path"
+
+					if [[ "${GIT_FIXED_WORKDIR}" != "" ]]; then
+						GIT_FIXED_WORKDIR="${GIT_FIXED_WORKDIR}/${path}" fetch_from_repo "$surl" "$workdir/$path" "$sref"
+					else
+						fetch_from_repo "$surl" "$workdir/$path" "$sref"
+					fi
+
+				done < <(git config -f .gitmodules --get-regexp 'submodule\..*\.path')
 			fi
 		fi
 	else

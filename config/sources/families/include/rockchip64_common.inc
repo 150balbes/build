@@ -17,7 +17,6 @@ OVERLAY_PREFIX="${OVERLAY_PREFIX:-"rockchip"}" # default to 'rockchip' if not se
 OVERLAY_DIR="/boot/dtb/rockchip/overlay"
 # SERIALCON is handled/defaulted in hook post_family_config__900_late_default_serial_console_by_branch at end of this file
 GOVERNOR="ondemand"
-ATFPATCHDIR='atf-rockchip64'
 BOOTPATCHDIR="${BOOTPATCHDIR:-"u-boot-rockchip64"}"
 PACKAGE_LIST_FAMILY="ethtool"
 RKBIN_DIR="$SRC/cache/sources/rkbin-tools"
@@ -27,13 +26,19 @@ RKBIN_DIR="$SRC/cache/sources/rkbin-tools"
 case $BRANCH in
 
 	current)
-		declare -g KERNEL_MAJOR_MINOR="6.12"
+		declare -g KERNEL_MAJOR_MINOR="6.18"
 		declare -g LINUXFAMILY=rockchip64
 		declare -g LINUXCONFIG='linux-rockchip64-'$BRANCH
 		;;
 
 	edge)
-		declare -g KERNEL_MAJOR_MINOR="6.16"
+		declare -g KERNEL_MAJOR_MINOR="7.2"
+		declare -g LINUXFAMILY=rockchip64
+		declare -g LINUXCONFIG='linux-rockchip64-'$BRANCH
+		;;
+
+	bleedingedge)
+		declare -g KERNEL_MAJOR_MINOR="7.3"
 		declare -g LINUXFAMILY=rockchip64
 		declare -g LINUXCONFIG='linux-rockchip64-'$BRANCH
 		;;
@@ -52,7 +57,12 @@ esac
 #
 # Available options for BOOT_SCENARIO are:
 # - only-blobs: proprietary rockchip ddrbin, miniloader and ATF
-# - spl-blobs: proprietary rockchip ddrin and ATF, but uses mainline u-boot SPL in place of rockchip miniloader
+# - spl-blobs: proprietary rockchip ddrbin and ATF, but uses mainline u-boot SPL in place of rockchip miniloader
+# - vendor-spl-blobs: like spl-blobs but FlashBoot in boot_merger ini points at a vendor SPL blob declared via
+#   VENDOR_SPL_PATH instead of the mainline-built ./spl/u-boot-spl.bin. Used for boards where mainline SPL has
+#   unresolved SoC-specific issues, e.g. NanoPi M5 (RK3576 mainline SPL has the UFS OCS load_addr bug). Also
+#   triggers binman to deploy u-boot-rockchip-spi.bin so SPI flash can use mainline SPL (which knows the chip
+#   via DT) while SD/eMMC/UFS use the vendor SPL idblock.
 # - tpl-spl-blob: uses mainline u-boot TPL and SPL with proprietary rockchip ATF blob
 # - tpl-blob-atf-mainline: proprietary rockchip ddrbin + mainline u-boot SPL + mainline ATF
 # - blobless: mainline u-boot TPL + mainline u-boot SPL + mainline ATF
@@ -60,7 +70,7 @@ esac
 # - binman-atf-mainline:  u-boot builds full boot image with mainline ATF from information in device tree.  See: https://docs.u-boot.org/en/latest/develop/package/binman.html
 
 #BOOT_SOC=`expr $BOOTCONFIG : '.*\(rk[[:digit:]]\+.*\)_.*'`
-BOOT_SOC=${BOOT_SOC:=$(expr $BOOTCONFIG : '.*\(rk[[:digit:]]\+.*\)_.*' || true)}
+BOOT_SOC=${BOOT_SOC:=$(expr "${BOOTCONFIG}" : '.*\(rk[[:digit:]]\+.*\)_.*' || true)}
 
 if [[ "a${BOOT_SOC}a" == "aa" ]]; then
 	if [[ "${BOOTCONFIG}" != "" && "${BOOTCONFIG}" != " none" ]]; then # only warn if BOOTCONFIG set and not 'none'
@@ -118,6 +128,7 @@ case "$BOOT_SOC" in
 		BOOT_SCENARIO="${BOOT_SCENARIO:=spl-blobs}"
 		DDR_BLOB="${DDR_BLOB:-"rk35/rk3528_ddr_1056MHz_v1.09.bin"}"
 		BL31_BLOB="${BL31_BLOB:-"rk35/rk3528_bl31_v1.17.elf"}"
+		ROCKUSB_BLOB="rk35/rk3528_spl_loader_v1.07.104.bin"
 		;;
 
 	rk3566)
@@ -143,13 +154,17 @@ case "$BOOT_SOC" in
 
 	rk3576)
 		BOOT_SCENARIO="${BOOT_SCENARIO:=spl-blobs}"
-		DDR_BLOB="${DDR_BLOB:-"rk35/rk3576_ddr_lp4_2112MHz_lp5_2736MHz_v1.03.bin"}"
-		BL31_BLOB="${BL31_BLOB:-"rk35/rk3576_bl31_v1.04.elf"}"
+		# FIXME(rk3576): v1.09 caused boot failures on some boards (see PR #8596, #8600).
+		# Pinning to v1.08 until newer DDR binaries are validated across rk3576 boards.
+		DDR_BLOB="${DDR_BLOB:-"rk35/rk3576_ddr_lp4_2112MHz_lp5_2736MHz_v1.08.bin"}"
+		BL31_BLOB="${BL31_BLOB:-"rk35/rk3576_bl31_v1.20.elf"}"
+		# ROCKUSB_BLOB is used to flash a board with rkdeveloptool (Linux, can use 'rkdevflash' extension) or RKDevTool (Windows) in MASKROM mode
+		ROCKUSB_BLOB="rk35/rk3576_spl_loader_v1.03.102.bin"
 		;;
 
 	rk3588) #CPUMAX undefined?
 		BOOT_SCENARIO="${BOOT_SCENARIO:=spl-blobs}"
-		DDR_BLOB="${DDR_BLOB:-"rk35/rk3588_ddr_lp4_2112MHz_lp5_2400MHz_v1.18.bin"}"
+		DDR_BLOB="${DDR_BLOB:-"rk35/rk3588_ddr_lp4_2112MHz_lp5_2400MHz_v1.20_20250926.bin"}"
 		BL31_BLOB="${BL31_BLOB:-"rk35/rk3588_bl31_v1.48.elf"}"
 		# ROCKUSB_BLOB is used to flash a board with rkdeveloptool (Linux, can use 'rkdevflash' extension) or RKDevTool (Windows) in MASKROM mode
 		ROCKUSB_BLOB="rk35/rk3588_spl_loader_v1.16.113.bin"
@@ -158,6 +173,7 @@ case "$BOOT_SOC" in
 esac
 
 prepare_boot_configuration() {
+	display_alert "Preparing boot configuration" "rockchip64_common::prepare_boot_configuration()" "info"
 	ATFSOURCE=''
 	ATF_COMPILE='no'
 	case "$BOOT_SCENARIO" in
@@ -165,25 +181,36 @@ prepare_boot_configuration() {
 			UBOOT_TARGET_MAP="BL31=bl31.elf idbloader.img u-boot.itb;;idbloader.img u-boot.itb"
 			ATF_COMPILE=yes
 			ATFSOURCE='https://github.com/ARM-software/arm-trusted-firmware'
-			ATF_COMPILER='aarch64-linux-gnu-'
 			ATFDIR='arm-trusted-firmware'
-			ATFBRANCH='tag:v2.13.0'
-			ATF_USE_GCC='> 6.3'
+			ATFBRANCH='tag:v2.13.0'            # also adapt ATFPATCHDIR when changing this
+			ATFPATCHDIR='atf-rockchip64/v2.13' # there's also v2.14 patches ready
 			ATF_TARGET_MAP="M0_CROSS_COMPILE=arm-linux-gnueabi- PLAT=$BOOT_SOC bl31;;build/$BOOT_SOC/release/bl31/bl31.elf:bl31.elf"
-			ATF_TOOLCHAIN2="arm-linux-gnueabi-:< 10.0"
 
 			[[ $BOOT_SCENARIO == tpl-blob-atf-mainline ]] &&
 				UBOOT_TARGET_MAP="BL31=bl31.elf idbloader.img u-boot.itb;;idbloader.img u-boot.itb"
 			[[ $BOOT_SCENARIO == binman-atf-mainline ]] &&
 				UBOOT_TARGET_MAP="BL31=bl31.elf ROCKCHIP_TPL=$RKBIN_DIR/$DDR_BLOB;;u-boot-rockchip.bin"
-				# binman builds do not have separate build targets for idbloader.img and u-boot.itb
-				# ROCKCHIP_TPL needed for boards with CONFIG_ROCKCHIP_EXTERNAL_TPL, ignored for boards without it
+			# binman builds do not have separate build targets for idbloader.img and u-boot.itb
+			# ROCKCHIP_TPL needed for boards with CONFIG_ROCKCHIP_EXTERNAL_TPL, ignored for boards without it
 			;;
 		tpl-spl-blob)
 			UBOOT_TARGET_MAP="BL31=$RKBIN_DIR/$BL31_BLOB idbloader.img u-boot.itb;;idbloader.img u-boot.itb"
 			;;
 		spl-blobs)
 			UBOOT_TARGET_MAP="BL31=$RKBIN_DIR/$BL31_BLOB spl/u-boot-spl.bin u-boot.dtb u-boot.itb;;idbloader.img u-boot.itb"
+			;;
+		vendor-spl-blobs)
+			# Like spl-blobs but boot_merger uses VENDOR_SPL_PATH for FlashBoot.
+			# Empty make-target list (env vars only): binman default goal produces
+			# u-boot.itb + u-boot-rockchip-spi.bin as side products. boot_merger
+			# then overwrites idbloader.img with the vendor-SPL version.
+			UBOOT_TARGET_MAP="BL31=$RKBIN_DIR/$BL31_BLOB ROCKCHIP_TPL=$RKBIN_DIR/$DDR_BLOB;;idbloader.img u-boot.itb u-boot-rockchip-spi.bin"
+			# Default VENDOR_SPL_PATH per SoC; board can still override.
+			if [[ -z "${VENDOR_SPL_PATH:-}" ]]; then
+				case "$BOOT_SOC" in
+					rk3576) declare -g VENDOR_SPL_PATH="${RKBIN_DIR}/rk35/rk3576_spl_v1.08.bin" ;;
+				esac
+			fi
 			;;
 		only-blobs)
 			UBOOT_TARGET_MAP="u-boot-dtb.bin;;idbloader.bin uboot.img trust.bin"
@@ -219,13 +246,30 @@ uboot_custom_postprocess() {
 			:
 			;;
 
-		spl-blobs | tpl-blob-atf-mainline)
+		spl-blobs | tpl-blob-atf-mainline | vendor-spl-blobs)
 			# Bomb if DDR_BLOB not defined or does not exist
 			declare SPL_BIN_PATH="${RKBIN_DIR}/${DDR_BLOB}"
 			[[ -z ${SPL_BIN_PATH} ]] && exit_with_error "DDR_BLOB not defined for scenario ${BOOT_SCENARIO}"
 			[[ ! -f "${SPL_BIN_PATH}" ]] && exit_with_error "DDR_BLOB ${SPL_BIN_PATH} does not exist for scenario ${BOOT_SCENARIO}"
 
-			if [[ "$BOOT_SOC" == "rk3576" ]]; then
+			# vendor-spl-blobs: FlashBoot in boot_merger points at the vendor SPL blob
+			# declared by the board via VENDOR_SPL_PATH (instead of the mainline-built
+			# ./spl/u-boot-spl.bin). Everything else (DDR, boost, usbplug, BL31) is
+			# unchanged from spl-blobs.
+			declare FLASH_BOOT_BIN="./spl/u-boot-spl.bin"
+			if [[ "$BOOT_SCENARIO" == "vendor-spl-blobs" ]]; then
+				[[ -z "${VENDOR_SPL_PATH:-}" ]] && exit_with_error "VENDOR_SPL_PATH must be set for BOOT_SCENARIO=vendor-spl-blobs"
+				[[ ! -f "${VENDOR_SPL_PATH}" ]] && exit_with_error "VENDOR_SPL_PATH (${VENDOR_SPL_PATH}) does not exist"
+				FLASH_BOOT_BIN="${VENDOR_SPL_PATH}"
+				display_alert "boot_merger for '${BOOT_SOC}'" "using vendor SPL ${VENDOR_SPL_PATH##*/}" "info"
+			fi
+
+			if declare -F board_uboot_spl_blobs_postprocess >/dev/null; then
+				# Board/extension hook: take over SPL loader generation for this BOOT_SOC
+				# (e.g. boot_merger with custom usbplug, idbloader via mkimage, maskrom
+				# spl_loader save). Falls through to the upstream branches below otherwise.
+				board_uboot_spl_blobs_postprocess "$BOOT_SOC" "$SPL_BIN_PATH" "$FLASH_BOOT_BIN"
+			elif [[ "$BOOT_SOC" == "rk3576" ]]; then
 				display_alert "boot_merger for '${BOOT_SOC}' for scenario ${BOOT_SCENARIO}" "SPL_BIN_PATH: ${SPL_BIN_PATH}" "debug"
 				RKBOOT_INI_FILE=rk3576.ini
 				cp $RKBIN_DIR/rk35/RK3576MINIALL.ini $RKBOOT_INI_FILE
@@ -233,7 +277,7 @@ uboot_custom_postprocess() {
 				sed -i "s|Path1=.*rk3576_ddr.*$|Path1=${SPL_BIN_PATH}|g" $RKBOOT_INI_FILE
 				sed -i "s|Path1=.*rk3576_usbplug.*$|Path1=${RKBIN_DIR}/rk35/rk3576_usbplug_v1.03.bin|g" $RKBOOT_INI_FILE
 				sed -i "s|FlashData=.*$|FlashData=${SPL_BIN_PATH}|g" $RKBOOT_INI_FILE
-				sed -i "s|FlashBoot=.*$|FlashBoot=./spl/u-boot-spl.bin|g" $RKBOOT_INI_FILE
+				sed -i "s|FlashBoot=.*$|FlashBoot=${FLASH_BOOT_BIN}|g" $RKBOOT_INI_FILE
 				sed -i "s|IDB_PATH=.*$|IDB_PATH=idbloader.img|g" $RKBOOT_INI_FILE
 				run_host_x86_binary_logged $RKBIN_DIR/tools/boot_merger $RKBOOT_INI_FILE
 				rm -f $RKBOOT_INI_FILE
@@ -278,6 +322,13 @@ uboot_custom_postprocess() {
 			run_host_command_logged dd if=rkspi_tpl_spl.img of=rkspi_loader.img conv=notrunc status=none
 			run_host_command_logged dd if=u-boot.itb of=rkspi_loader.img seek=768 conv=notrunc status=none
 		fi
+		# Hook: allow board/extension to copy out the finished SPI image
+		# (e.g. for Maskrom recovery). Invoked after both rkspi_loader.img
+		# build paths so the hook contract is consistent regardless of
+		# BOOT_SPI_RKSPI_LOADER.
+		if declare -F board_uboot_spi_image_after_build >/dev/null; then
+			board_uboot_spi_image_after_build
+		fi
 	fi
 }
 
@@ -303,9 +354,25 @@ write_uboot_platform() {
 	fi
 }
 
-# @TODO: this is not ready for BOOT_SCENARIO=binman yet
+write_uboot_platform_ufs() {
+	# Args: $1 = u-boot deploy dir (DIR), $2 = Boot LUN A (e.g. /dev/sdb), $3 = General LUN (e.g. /dev/sda).
+	# Generic mainline-stack writer: idbloader.img → Boot LUN A @ 32 KiB; u-boot.itb → General LUN @ 8 MiB.
+	# UFS LUNs expose 4 KiB logical blocks, so bs=4096 with pre-divided seek values.
+	# Boards needing a vendor idblock (e.g. RK3576 NanoPi M5) override this in their post_family_config hook.
+	local logging_prelude=""
+	[[ $(type -t run_host_command_logged) == function ]] && logging_prelude="run_host_command_logged"
+
+	if [[ -f $1/idbloader.img && -f $1/u-boot.itb ]]; then
+		${logging_prelude} dd if=$1/idbloader.img of=$2 bs=4096 seek=8 conv=notrunc,fsync status=none
+		${logging_prelude} dd if=$1/u-boot.itb of=$3 bs=4096 seek=2048 conv=notrunc,fsync status=none
+	else
+		echo "write_uboot_platform_ufs: no idbloader.img + u-boot.itb pair in $1; board hook must override."
+		exit 1
+	fi
+}
+
 write_uboot_platform_mtd() {
-	FILES=$(find "$1" -maxdepth 1 -type f -name "rkspi_loader*.img")
+	FILES=$(find "$1" -maxdepth 1 -type f \( -name "rkspi_loader*.img" -o -name "u-boot-rockchip-spi*.bin" \))
 	if [ -z "$FILES" ]; then
 		echo "No SPI image found."
 		exit 1
@@ -313,32 +380,39 @@ write_uboot_platform_mtd() {
 
 	MENU_ITEMS=()
 	i=1
+	FILE_ARRAY=()
 
 	# Read the files into an array
 	while IFS= read -r file; do
 		filename=$(basename "$file")
 		MENU_ITEMS+=("$i" "$filename" "")
+		FILE_ARRAY+=("$file")
 		((i++))
 	done <<< "$FILES"
 
-	# If there is only one image, we can skip the dialog
-	if [[ $i -eq 2 ]]; then
-		dd if=$1/${MENU_ITEMS[1]} of=$2 conv=notrunc status=none > /dev/null 2>&1
+	if [[ ! -t 1 || $i -eq 2 ]]; then
+		first_file="${FILE_ARRAY[0]}"
+		if [[ "$first_file" == *rkspi_loader*.img ]]; then
+			dd if="$first_file" of="$2" conv=notrunc status=none > /dev/null 2>&1
+		else
+			flashcp -v -p "$first_file" /dev/mtd0
+		fi
 		return
 	fi
 
 	[[ -f /etc/armbian-release ]] && source /etc/armbian-release
 	backtitle="Armbian for $BOARD_NAME install script, https://www.armbian.com"
 
-	CHOICE=$(dialog --no-collapse \
-  		--title "armbian-install" \
-  		--backtitle "$backtitle" \
-  		--radiolist "Choose SPI image:" 0 56 4 \
-  		"${MENU_ITEMS[@]}" \
-  		3>&1 1>&2 2>&3)
+	CHOICE=$(dialog --no-collapse --title "armbian-install" --backtitle "$backtitle" --radiolist "Choose SPI image:" 0 56 4 "${MENU_ITEMS[@]}" 3>&1 1>&2 2>&3)
 
 	if [ $? -eq 0 ]; then
-		dd if=$1/${MENU_ITEMS[($CHOICE*3)-2]} of=$2 conv=notrunc status=none > /dev/null 2>&1
+		idx=$((CHOICE - 1))
+		chosen_file="${FILE_ARRAY[$idx]}"
+		if [[ "$chosen_file" == *rkspi_loader*.img ]]; then
+			dd if="$chosen_file" of="$2" conv=notrunc status=none > /dev/null 2>&1
+		else
+			flashcp -v -p "$chosen_file" /dev/mtd0
+		fi
 	else
 		echo "No SPI image chosen."
 		exit 1
@@ -397,7 +471,7 @@ family_tweaks_bsp() {
 
 }
 
-# A late hook to default SERIALCON based on BRANCH; BOARD and hooks (earlier than 900) can set it to override this.
+# A late hook to default SERIALCON based on BRANCH and SOC; BOARD and hooks (earlier than 900) can set it to override this.
 function post_family_config__900_late_default_serial_console_by_branch() {
 	display_alert "rockchip64_common: defaulting SERIALCON" "initial SERIALCON: '${SERIALCON:-"unset"}'" "debug"
 
@@ -413,10 +487,19 @@ function post_family_config__900_late_default_serial_console_by_branch() {
 			SERIALCON="ttyFIQ0"
 			;;
 		*)
-			display_alert "rockchip64_common: defaulting SERIALCON" "Setting SERIALCON to ttyS2 for BRANCH='${BRANCH}'" "info"
-			SERIALCON="ttyS2"
+			# Different Rockchip SoCs use different UART for debug console
+			case $BOOT_SOC in
+				rk3576)
+					display_alert "rockchip64_common: defaulting SERIALCON" "Setting SERIALCON to ttyS0 for SoC='${BOOT_SOC}' BRANCH='${BRANCH}'" "info"
+					SERIALCON="ttyS0"
+					;;
+				*)
+					display_alert "rockchip64_common: defaulting SERIALCON" "Setting SERIALCON to ttyS2 for SoC='${BOOT_SOC}' BRANCH='${BRANCH}'" "info"
+					SERIALCON="ttyS2"
+					;;
+			esac
 			;;
 	esac
 
-	display_alert "rockchip64_common: defaulting SERIALCON" "final SERIALCON: '${SERIALCON}' for BRANCH='${BRANCH}'" "debug"
+	display_alert "rockchip64_common: defaulting SERIALCON" "final SERIALCON: '${SERIALCON}' for BRANCH='${BRANCH}' SOC='${BOOT_SOC}'" "debug"
 }

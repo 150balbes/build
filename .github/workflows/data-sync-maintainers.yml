@@ -1,0 +1,203 @@
+name: "Data: Sync maintainers"
+
+# Script connects to the contacts database once per hour and updates BOARD_MAINTAINER property in the board config files.
+# If there are any changes, it opens a Pull Request
+#
+# spdx-id: GPL-2.0-or-later
+# copyright-owner: @igorpecovnik
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+
+  Build:
+    name: "Maintainers sync"
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'armbian' }}
+    env:
+      MAINTAINER_INACTIVE_DAYS: "365"   # maintainers idle >= this many days are dropped from CODEOWNERS (kept as BOARD_MAINTAINER)
+    steps:
+
+      - name: "Checkout build repo"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: armbian/build
+          # Follow the dispatched ref: the scheduled run is on main (so this is
+          # 'main' there), but a manual workflow_dispatch from a branch checks out
+          # THAT branch — so changes to generate_CODEOWNERS.sh / configs can be
+          # tested end-to-end before merge (was hardcoded 'main', which always ran
+          # main's files regardless of where you dispatched from).
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          clean: false
+
+      - name: "Install SSH key for storage"
+        uses: shimataro/ssh-key-action@87a8f067114a8ce263df83e9ed5c849953548bc3 # v2.8.1
+        with:
+          key: ${{ secrets.KEY_UPLOAD }}
+          known_hosts: ${{ secrets.KNOWN_HOSTS_ARMBIAN_UPLOAD }}
+          if_key_exists: replace
+
+      - name: "Download JSON file"
+        run: |
+
+          # download json that is prepared in https://github.com/armbian/armbian.github.io
+          curl -o /tmp/armbian_maintainers.json https://github.armbian.com/maintainers.json
+
+      - name: "Update maintainers"
+        run: |
+          # A support-level class can currently be empty (e.g. there are no
+          # *.wip boards). nullglob makes such an unmatched pattern expand to
+          # nothing instead of the literal path, which sed/the loop below would
+          # otherwise fail on (No such file or directory) under -e/pipefail.
+          shopt -s nullglob
+
+          # reset all maintainers so we generate from scratch
+          sed -i "s/BOARD_MAINTAINER.*/BOARD_MAINTAINER=\"\"/" config/boards/*.{conf,wip,csc,eos,tvb}
+
+          # extract values fron JSON
+          declare -A MAINTAINERS
+          INACTIVE_DAYS="${MAINTAINER_INACTIVE_DAYS:-365}"
+          : > /tmp/inactive_maintainers.txt   # GitHub usernames idle >= INACTIVE_DAYS (for CODEOWNERS)
+          {
+            # By default, bash run the pipe command in subshells
+            # which make variable can't be assigned to.
+            # And yes, lastpipe can solve it
+            # But this is better.
+            # One jq pass -> a row per maintainer: name, boards, github-username,
+            # idle-days, joined by US (0x1f). A non-whitespace separator is required:
+            # IFS=$'\t' read collapses consecutive tabs, so an empty field (e.g. a null
+            # Maintaining) would shift the columns. Replaces ~4 jq forks per record and
+            # the inner board loop's var that used to shadow the record var.
+            while IFS=$'\x1f' read -r NAME BOARD MAINTAINER_GITHUB DAYS; do
+              # long-inactive: kept in BOARD_MAINTAINER below, recorded for CODEOWNERS drop
+              if [[ -n "$MAINTAINER_GITHUB" && -n "$DAYS" ]] && (( DAYS >= INACTIVE_DAYS )); then
+                echo "$MAINTAINER_GITHUB" >> /tmp/inactive_maintainers.txt
+                echo "  ⚠ inactive ${DAYS}d: @${MAINTAINER_GITHUB} (dropped from CODEOWNERS)"
+              fi
+              [[ -n "$BOARD" && -n "$MAINTAINER_GITHUB" ]] || continue
+              echo "- [$NAME](https://github.com/${MAINTAINER_GITHUB})"
+              while read -r board; do
+                [[ -n "$board" ]] || continue
+                echo -e "  - $board"
+                MAINTAINERS["$board"]+="$MAINTAINER_GITHUB "
+              done < <(echo "$BOARD" | tr ',' '\n' | sort -u)
+            done < <(jq -r '
+              .[] | [ (.First_Name // ""), (.Maintaining // ""),
+                      (.Github | split("/") | .[3] // ""),
+                      (if (.Days_since_last_activity | type) == "number"
+                       then (.Days_since_last_activity | floor | tostring) else "" end) ]
+                   | join("\u001f")
+            ' /tmp/armbian_maintainers.json)
+
+            for cfg in config/boards/*.{conf,wip,csc,eos,tvb}; do
+              board_name="$(echo "${cfg##*/}" | sed -E 's/\..*//')"
+              declare -a maintainers
+              readarray -t maintainers < <(echo "${MAINTAINERS[${board_name}]}" | xargs -n1 | sort -u)
+              sed -i "s/BOARD_MAINTAINER=.*/BOARD_MAINTAINER=\"${maintainers[*]}\"/" "${cfg}"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "Mark csc for no maintainer"
+        run: |
+          shopt -s nullglob   # no *.wip boards -> don't choke on the literal glob
+
+          # `|| true`: grep exits 1 when no conf/wip board has an empty
+          # maintainer, which would trip pipefail; having nothing to demote is fine.
+          { grep BOARD_MAINTAINER=\"\" config/boards/*.{wip,conf} || true; } | cut -d":" -f1 |
+            while read -r line; do
+              if [[ "${line}" != "${line/.conf/.csc}" ]]; then
+                mv -v "$line" "${line/.conf/.csc}"
+              fi
+              if [[ "${line}" != "${line/.wip/.csc}" ]]; then
+                mv -v "$line" "${line/.wip/.csc}"
+              fi
+            done
+
+      - name: "Re-generate CODEOWNERS"
+        env:
+          INACTIVE_MAINTAINERS_FILE: /tmp/inactive_maintainers.txt
+        run: |
+
+          ./.github/generate_CODEOWNERS.sh
+
+      - name: "Flag CODEOWNERS users without write access"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+
+          # Individuals referenced in the generated CODEOWNERS (drop any @org/team refs).
+          mapfile -t users < <(grep -oE '@[A-Za-z0-9_/-]+' .github/CODEOWNERS \
+            | sed 's/^@//' | grep -v '/' | tr 'A-Z' 'a-z' | sort -u)
+
+          # Collaborators that actually have push (write) access. A CODEOWNERS entry
+          # for anyone WITHOUT write access is silently ignored by GitHub — never
+          # review-requested — so surface them for the maintainers to fix.
+          collabs="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/collaborators" \
+            --jq '.[] | select(.permissions.push) | .login' 2>/dev/null || true)"
+          have_push="$(tr 'A-Z' 'a-z' <<<"$collabs" | sort -u)"
+
+          {
+            echo ""
+            echo "### CODEOWNERS users without write access"
+            echo ""
+            if [[ -z "$have_push" ]]; then
+              echo "_Could not read repository collaborators (token lacks access) — check skipped._"
+            else
+              missing=()
+              for u in "${users[@]}"; do
+                grep -qxF "$u" <<<"$have_push" || missing+=("$u")
+              done
+              if (( ${#missing[@]} )); then
+                echo "These ${#missing[@]} CODEOWNERS entries are ignored by GitHub until granted write access:"
+                echo ""
+                printf -- '- @%s\n' "${missing[@]}"
+              else
+                echo "_All ${#users[@]} CODEOWNERS users have write access._"
+              fi
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: '`Automatic` board configs status synchronise'
+          signoff: false
+          branch: update-maintainers
+          delete-branch: true
+          title: '`Automatic` board configs status synchronise'
+          body: |
+            > [!IMPORTANT]
+            > This is an automatically generated PR — do not edit board configs here by hand.
+
+            ## Automated maintainers & board-status sync
+
+            Generated automatically from the Armbian maintainers database to keep each
+            board's `BOARD_MAINTAINER` and support level in step with who actually looks
+            after it.
+
+            ### What changed
+            - **Maintainers synced** — every board's `BOARD_MAINTAINER` is regenerated from the database.
+            - **Unmaintained boards demoted to CSC** — any board left without a maintainer is renamed to `.csc` (community-supported), so its status matches reality.
+            - **CODEOWNERS refreshed** — long-inactive maintainers are dropped from `CODEOWNERS` (so they aren't review-requested) while staying listed in `BOARD_MAINTAINER`.
+
+            ### Want to maintain a board?
+            Add or update your details — [adjust the maintainer data here](https://www.armbian.com/update-data/).
+
+            Active maintainers are listed automatically on [armbian.com/authors](https://armbian.com/authors), based on their recent activity.
+
+            ### References
+            - [Board Maintainers Procedures and Guidelines](https://docs.armbian.com/Board_Maintainers_Procedures_and_Guidelines/)
+            - [Contribute](https://docs.armbian.com/Process_Contribute/)
+
+          labels: |
+            Work in progress
+          #assignees: igorpecovnik
+          #reviewers: Must be org collaborator
+          draft: false

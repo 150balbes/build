@@ -80,12 +80,12 @@ set_usbgadget_ipaddress() {
 		echo "unudhcpd process already exists, skip setting usb gadget ip, unudhcpd_pid is $unudhcpd_pid"
 		return
 	fi
-	echo "Starting dnsmasq with server ip $host_ip, client ip: $client_ip"
+	echo "Starting unudhcpd service with server ip $host_ip, client ip: $client_ip"
 	# Get usb interface
 	INTERFACE=""
 	ip a add "${host_ip}/255.255.0.0" dev usb0 2> /dev/null && ip link set usb0 up && INTERFACE=usb0
 	if [ -z $INTERFACE ]; then
-		ip a add "${host_ip}/255.255.0.0" dev eth0 2> /dev/null && eth0 && INTERFACE=eth0
+		ip a add "${host_ip}/255.255.0.0" dev eth0 2> /dev/null && ip link set eth0 up && INTERFACE=eth0
 	fi
 
 	if [ -z $INTERFACE ]; then

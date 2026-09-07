@@ -1,7 +1,9 @@
 # Allwinner A64 quad core 1GB/2GB RAM SoC GBE WiFi/BT
 BOARD_NAME="Orange Pi Win"
+BOARD_VENDOR="xunlong"
 BOARDFAMILY="sun50iw1"
 BOARD_MAINTAINER=""
+INTRODUCED="2016"
 BOOTCONFIG="orangepi_win_defconfig"
 KERNEL_TARGET="current,edge,legacy"
 KERNEL_TEST_TARGET="current"

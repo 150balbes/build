@@ -2,10 +2,76 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
+
+function bootscript_export_display_console() {
+	unset BOOTSCRIPT_TEMPLATE__DISPLAY_CONSOLE
+	typeset ITEM
+	typeset CONSOLEARGS
+
+	for ITEM in ${DISPLAYCON//,/ }; do
+		CONSOLEARGS="${CONSOLEARGS:-}${CONSOLEARGS:+ }console=${ITEM//:/,}"
+	done
+
+	for ITEM in $SRC_CMDLINE; do
+		if [[ ! 'console' == "${ITEM%%=*}" ]]; then
+			continue
+		fi
+		if [[ "${ITEM#*=}" =~ 'tty'[AGSU]* ]]; then
+			continue
+		fi
+		CONSOLEARGS="${CONSOLEARGS:-}${CONSOLEARGS:+ }${ITEM:?}"
+	done
+	CONSOLEARGS="$(echo "${CONSOLEARGS:-}" | xargs -n1 | sort -u | xargs)"
+
+	export BOOTSCRIPT_TEMPLATE__DISPLAY_CONSOLE="${CONSOLEARGS:-}"
+}
+
+function bootscript_export_serial_console() {
+	unset BOOTSCRIPT_TEMPLATE__SERIAL_CONSOLE
+	typeset ITEM
+	typeset CONSOLEARGS
+
+	for ITEM in ${SERIALCON//,/ }; do
+		CONSOLEARGS="${CONSOLEARGS:-}${CONSOLEARGS:+ }console=${ITEM//:/,}"
+	done
+
+	for ITEM in $SRC_CMDLINE; do
+		if [[ ! 'console' == "${ITEM%%=*}" ]]; then
+			continue
+		fi
+		if [[ ! "${ITEM#*=}" =~ 'tty'[AGSU]* ]]; then
+			continue
+		fi
+		CONSOLEARGS="${CONSOLEARGS:-}${CONSOLEARGS:+ }${ITEM:?}"
+	done
+	CONSOLEARGS="$(echo "${CONSOLEARGS:-}" | xargs -n1 | sort -u | xargs)"
+
+	export BOOTSCRIPT_TEMPLATE__SERIAL_CONSOLE="${CONSOLEARGS:-}"
+}
+
+function render_bootscript_template() { (
+	typeset BOOTSCRIPT_TEMPLATE__CREATE_DATE
+	typeset SHELL_FORMAT
+
+	BOOTSCRIPT_TEMPLATE__CREATE_DATE="$(date -Ru)"
+
+	bootscript_export_display_console
+	bootscript_export_serial_console
+
+	SHELL_FORMAT="$(set | sed -En '/^BOOTSCRIPT_TEMPLATE__/ { s/=.*$//; s/^/$/; p; }')"
+	display_alert "Bootscript template variables to be rendered" "${SHELL_FORMAT:-N/A}" "debug"
+
+	export $(set | sed -En '/^BOOTSCRIPT_TEMPLATE__/s/=.*$//p')
+	envsubst "'${SHELL_FORMAT}'"
+); }
+
+function proof_rendered_bootscript_template() {
+	! egrep '\$\{?BOOTSCRIPT_TEMPLATE__' "${1:?}"
+}
 
 function install_distribution_agnostic() {
 	display_alert "Installing distro-agnostic part of rootfs" "install_distribution_agnostic" "debug"
@@ -42,6 +108,7 @@ function install_distribution_agnostic() {
 		MIN_SPEED=$CPUMIN
 		MAX_SPEED=$CPUMAX
 		GOVERNOR=$GOVERNOR
+		BOOST=${CPUBOOST:-false}
 	EOF
 
 	# disable selinux by default
@@ -64,11 +131,6 @@ function install_distribution_agnostic() {
 
 	# add the /dev/urandom path to the rng config file
 	echo "HRNGDEVICE=/dev/urandom" >> "${SDCARD}"/etc/default/rng-tools
-
-	# @TODO: security problem?
-	# ping needs privileged action to be able to create raw network socket
-	# this is working properly but not with (at least) Debian Buster
-	chroot_sdcard chmod u+s /bin/ping
 
 	# change time zone data
 	echo "${TZDATA}" > "${SDCARD}"/etc/timezone
@@ -109,14 +171,27 @@ function install_distribution_agnostic() {
 	# display welcome message at first root login which is ready by /usr/sbin/armbian/armbian-firstlogin
 	touch "${SDCARD}"/root/.not_logged_in_yet
 
+	# use user provided firstboot config
+	if [[ -f "${USERPATCHES_PATH}/firstboot.conf" ]]; then
+		display_alert "Use user provided firstboot config" "" "info"
+		cp "${USERPATCHES_PATH}/firstboot.conf" "${SDCARD}"/root/.not_logged_in_yet
+	fi
+
 	if [[ ${DESKTOP_AUTOLOGIN} == yes ]]; then
 		# set desktop autologin
 		touch "${SDCARD}"/root/.desktop_autologin
 	fi
 
 	# NOTE: this needs to be executed before family_tweaks
+	local bootscript_src_path
 	local bootscript_src=${BOOTSCRIPT%%:*}
 	local bootscript_dst=${BOOTSCRIPT##*:}
+
+	if [[ -f "${USERPATCHES_PATH}/bootscripts/${bootscript_src}" ]]; then
+		bootscript_src_path="${USERPATCHES_PATH}/bootscripts"
+	else
+		bootscript_src_path="${SRC}/config/bootscripts"
+	fi
 
 	# create extlinux config file @TODO: refactor into extensions u-boot, extlinux
 	if [[ $SRC_EXTLINUX == yes ]]; then
@@ -153,12 +228,20 @@ function install_distribution_agnostic() {
 	else # ... not extlinux ...
 
 		if [[ -n "${BOOTSCRIPT}" ]]; then # @TODO: && "${BOOTCONFIG}" != "none"
-			display_alert "Deploying boot script" "$bootscript_src" "info"
-			if [ -f "${USERPATCHES_PATH}/bootscripts/${bootscript_src}" ]; then
-				run_host_command_logged cp -pv "${USERPATCHES_PATH}/bootscripts/${bootscript_src}" "${SDCARD}/boot/${bootscript_dst}"
-			else
-				run_host_command_logged cp -pv "${SRC}/config/bootscripts/${bootscript_src}" "${SDCARD}/boot/${bootscript_dst}"
-			fi
+			case "${bootscript_src}" in
+				*'.template')
+					display_alert "Rendering boot script template" "${bootscript_src_path}/${bootscript_src}" "info"
+					run_host_command_logged cat "${bootscript_src_path}/${bootscript_src}" | render_bootscript_template > "${SDCARD}/boot/${bootscript_dst}"
+
+					if ! proof_rendered_bootscript_template "${SDCARD}/boot/${bootscript_dst}"; then
+						exit_with_error "Render of bootscript template was not successful. Inspect '${SDCARD}/boot/${bootscript_dst}' for unrendered variables."
+					fi
+					;;
+				*)
+					display_alert "Deploying boot script" "${bootscript_src_path}/${bootscript_src}" "info"
+					run_host_command_logged cp -pv "${bootscript_src_path}/${bootscript_src}" "${SDCARD}/boot/${bootscript_dst}"
+					;;
+			esac
 		fi
 
 		if [[ -n $BOOTENV_FILE ]]; then
@@ -296,7 +379,6 @@ function install_distribution_agnostic() {
 
 		if [[ "${KERNEL_HAS_WORKING_HEADERS:-"no"}" == "yes" ]]; then
 			if [[ $INSTALL_HEADERS == yes ]]; then # @TODO remove? might be a good idea to always install headers.
-				chroot_sdcard_apt_get_install "pahole"
 				install_artifact_deb_chroot "linux-headers"
 			fi
 		fi
@@ -324,14 +406,6 @@ function install_distribution_agnostic() {
 	# install board support packages
 	install_artifact_deb_chroot "armbian-bsp-cli"
 
-	# install armbian-desktop
-	if [[ $BUILD_DESKTOP == yes ]]; then
-		install_artifact_deb_chroot "armbian-desktop"
-		install_artifact_deb_chroot "armbian-bsp-desktop"
-		# install display manager and PACKAGE_LIST_DESKTOP_FULL packages if enabled per board
-		desktop_postinstall
-	fi
-
 	# install armbian-zsh
 	if [[ "${PACKAGE_LIST_RM}" != *armbian-zsh* ]]; then
 		if [[ $BUILD_MINIMAL != yes ]]; then
@@ -343,7 +417,7 @@ function install_distribution_agnostic() {
 	if [[ $PLYMOUTH == yes ]]; then
 		install_artifact_deb_chroot "armbian-plymouth-theme"
 	else
-		chroot_sdcard_apt_get_remove --auto-remove plymouth
+		chroot_sdcard_apt_get_remove --auto-remove plymouth 2> /dev/null || true
 	fi
 
 	# freeze armbian packages
@@ -432,7 +506,8 @@ function install_distribution_agnostic() {
 	# example: SERIALCON="ttyS0:15000000,ttyGS1"
 	#
 	ifs=$IFS
-	for i in $(echo "${SERIALCON:-'ttyS0'}" | sed "s/,/ /g"); do
+	local _serialcon_csv="${SERIALCON:-ttyS0}"
+	for i in ${_serialcon_csv//,/ }; do
 		IFS=':' read -r -a array <<< "$i"
 		[[ "${array[0]}" == "tty1" ]] && continue # Don't enable tty1 as serial console.
 		display_alert "Enabling serial console" "${array[0]}" "info"
@@ -475,23 +550,25 @@ function install_distribution_agnostic() {
 	cp "${SDCARD}"/etc/armbian-release "${SDCARD}"/etc/armbian-image-release
 
 	# save list of enabled extensions for this image
-	EXTENSIONS=${ENABLE_EXTENSIONS} >> "${SDCARD}"/etc/armbian-image-release
+	echo "EXTENSIONS='${ENABLE_EXTENSIONS}'" >> "${SDCARD}"/etc/armbian-image-release
 
 	# store vendor pretty name to image only. We don't need to save this in BSP upgrade
 	# files. Vendor should be only defined at build image stage.
 	[[ -z $VENDORPRETTYNAME ]] && VENDORPRETTYNAME="${VENDOR}"
-	VENDORPRETTYNAME="$VENDORPRETTYNAME" >> "${SDCARD}"/etc/armbian-image-release
+	echo "VENDORPRETTYNAME='$VENDORPRETTYNAME'" >> "${SDCARD}"/etc/armbian-image-release
 
 	# DNS fix. package resolvconf is not available everywhere
-	if [ -d "${SDCARD}"/etc/resolvconf/resolv.conf.d ] && [ -n "$NAMESERVER" ]; then
+	if [[ -d "${SDCARD}/etc/resolvconf/resolv.conf.d" && -n "$NAMESERVER" ]]; then
 		echo "nameserver $NAMESERVER" > "${SDCARD}"/etc/resolvconf/resolv.conf.d/head
 	fi
 
-	# permit root login via SSH for the first boot
-	sed -i 's/#\?PermitRootLogin .*/PermitRootLogin yes/' "${SDCARD}"/etc/ssh/sshd_config
-
-	# enable PubkeyAuthentication
-	sed -i 's/#\?PubkeyAuthentication .*/PubkeyAuthentication yes/' "${SDCARD}"/etc/ssh/sshd_config
+	# don't fail if OpenSSH is missing, e.g. if dropbear is installed instead
+	if [[ -f "${SDCARD}"/etc/ssh/sshd_config ]]; then
+		# permit root login via SSH for the first boot
+		sed -i 's/#\?PermitRootLogin .*/PermitRootLogin yes/' "${SDCARD}"/etc/ssh/sshd_config
+		# enable PubkeyAuthentication
+		sed -i 's/#\?PubkeyAuthentication .*/PubkeyAuthentication yes/' "${SDCARD}"/etc/ssh/sshd_config
+	fi
 
 	# avahi daemon defaults if exists
 	[[ -f "${SDCARD}"/usr/share/doc/avahi-daemon/examples/sftp-ssh.service ]] &&

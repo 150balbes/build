@@ -1,11 +1,13 @@
 # Rockchip RK3588 octa core 8/16/32GB RAM SoM GBE NVMe eMMC USB3
 BOARD_NAME="Turing RK1"
+BOARD_VENDOR="rockchip"
 BOARDFAMILY="rockchip-rk3588"
 BOARD_MAINTAINER=""
+INTRODUCED="2024"
 BOOTCONFIG="turing-rk1-rk3588_defconfig"
 BOOT_SOC="rk3588"
 KERNEL_TARGET="current,edge,vendor"
-KERNEL_TEST_TARGET="vendor,current"
+KERNEL_TEST_TARGET="vendor"
 FULL_DESKTOP="yes"
 BOOT_LOGO="desktop"
 IMAGE_PARTITION_TABLE="gpt"
@@ -49,8 +51,8 @@ function post_family_config__turing-rk1_use_mainline_uboot() {
 	display_alert "$BOARD" "Using mainline U-Boot for $BOARD / $BRANCH" "info"
 
 	declare -g BOOTSOURCE="https://github.com/u-boot/u-boot.git"
-	declare -g BOOTBRANCH='tag:v2024.04'
-	declare -g BOOTPATCHDIR="v2024.04"
+	declare -g BOOTBRANCH='tag:v2026.07'
+	declare -g BOOTPATCHDIR="v2026.07"
 	declare -g BOOTDELAY=1
 	# Don't set BOOTDIR, allow shared U-Boot source directory for disk space efficiency
 

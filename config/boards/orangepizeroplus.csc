@@ -1,7 +1,9 @@
 # Allwinner H5 quad core 512MB RAM SoC GBE WiFi SPI
 BOARD_NAME="Orange Pi Zero Plus"
+BOARD_VENDOR="xunlong"
 BOARDFAMILY="sun50iw2"
 BOARD_MAINTAINER="schwar3kat"
+INTRODUCED="2016"
 BOOTCONFIG="orangepi_zero_plus_defconfig"
 DEFAULT_CONSOLE="serial"
 MODULES="g_serial"

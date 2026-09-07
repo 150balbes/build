@@ -1,0 +1,52 @@
+# This configures label matching for PR's.
+#
+# The keys are labels, and the values are lists of minimatch patterns
+# to which those labels apply.
+#
+# NOTE: This can only add labels, not remove them.
+# NOTE: Due to YAML syntax limitations, patterns or labels which start
+# with a character that is part of the standard YAML syntax must be
+# quoted.
+#
+# Please keep the labels sorted and deduplicated.
+
+"Needs review":
+- changed-files:
+  - any-glob-to-any-file: '**'
+
+"Hardware":
+- all:
+  - changed-files:
+    - any-glob-to-any-file: ['patch/**/*','config/**/*']
+    - all-globs-to-all-files: ['!config/cli/**/*','!config/distributions/**/*']
+
+"Framework":
+- all:
+  - changed-files:
+    - any-glob-to-any-file: ['lib/**/*','tools/**/*','config/cli/**/*','extensions/**/*']
+
+"BSP":
+- all:
+  - changed-files:
+    - any-glob-to-any-file: ['packages/**/*']
+
+"GitHub Actions":
+- all:
+  - changed-files:
+    - any-glob-to-any-file: ['.github/workflows/**/*']
+
+"GitHub":
+- all:
+  - changed-files:
+    - any-glob-to-any-file: ['.github/**/*']
+    - all-globs-to-any-file: ['!.github/workflows/**/*']
+
+"Patches":
+- all:
+  - changed-files:
+    - any-glob-to-any-file: ['patch/**/*']
+
+# Add 'Documentation' label to any change to .md files within the entire repository 
+"Documentation":
+- changed-files:
+  - any-glob-to-any-file: '**/*.md'

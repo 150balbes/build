@@ -1,7 +1,9 @@
 # Allwinner A33 quad core 1Gb SoC
 BOARD_NAME="A33 OLinuXino"
+BOARD_VENDOR="olimex"
 BOARDFAMILY="sun8i"
 BOARD_MAINTAINER=""
+INTRODUCED="2016"
 HAS_VIDEO_OUTPUT="no"
 BOOTCONFIG="A33-OLinuXino_defconfig"
 OVERLAY_PREFIX="sun8i-a33"

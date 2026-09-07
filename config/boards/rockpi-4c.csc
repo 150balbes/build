@@ -1,7 +1,9 @@
 # Rockchip RK3399 hexa core 1-4GB SoC GBe eMMC USB3 WiFi/BT PoE miniDP USB host
 BOARD_NAME="Rockpi 4C"
+BOARD_VENDOR="radxa"
 BOARDFAMILY="rockchip64"
 BOARD_MAINTAINER=""
+INTRODUCED="2019"
 BOOTCONFIG="rock-pi-4c-rk3399_defconfig"
 KERNEL_TARGET="current,edge"
 KERNEL_TEST_TARGET="current"

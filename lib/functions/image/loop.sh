@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
@@ -11,6 +11,7 @@
 # check_loop_device <device_node>
 #
 function check_loop_device() {
+	local device="${1}" # $device is local to check_loop_device_internal; keep our own for the error message
 	do_with_retries 5 check_loop_device_internal "${@}" || {
 		exit_with_error "Device node ${device} does not exist after 5 tries."
 	}

@@ -1,7 +1,9 @@
 # Allwinner A20 dual core 1Gb SoC 1xSATA
 BOARD_NAME="Cubieboard 2"
+BOARD_VENDOR="cubietech"
 BOARDFAMILY="sun7i"
 BOARD_MAINTAINER=""
+INTRODUCED="2012"
 BOOTCONFIG="Cubieboard2_config"
 KERNEL_TARGET="current,edge,legacy"
 KERNEL_TEST_TARGET="current"

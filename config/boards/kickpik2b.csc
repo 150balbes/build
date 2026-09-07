@@ -1,7 +1,9 @@
 # Allwinner H618 quad core 1/2/4GB RAM SoC WiFi SPI USB-C
 BOARD_NAME="KickPi K2B"
+BOARD_VENDOR="kickpi"
 BOARDFAMILY="sun50iw9-bpi"
 BOARD_MAINTAINER="pyavitz"
+INTRODUCED="2024"
 BOOTCONFIG="kickpi_k2b_defconfig"
 OVERLAY_PREFIX="sun50i-h616"
 BOOT_FDT_FILE="sun50i-h618-kickpi-k2b.dtb"
@@ -9,8 +11,8 @@ BOOT_LOGO="desktop"
 KERNEL_TARGET="current,edge"
 KERNEL_TEST_TARGET="current"
 FORCE_BOOTSCRIPT_UPDATE="yes"
-BOOTBRANCH_BOARD="tag:v2025.07"
-BOOTPATCHDIR="v2025.07"
+BOOTBRANCH_BOARD="tag:v2026.01"
+BOOTPATCHDIR="v2026.01"
 PACKAGE_LIST_BOARD="rfkill bluetooth bluez bluez-tools"
 
 # AIC8800
@@ -24,15 +26,15 @@ function post_family_tweaks_bsp__aic8800_wireless() {
 	mkdir -p "${destination}"/etc/modules-load.d
 	# Add wireless conf
 	cat > "${destination}"/etc/modprobe.d/aic8800-wireless.conf <<- EOT
-	options aic8800_fdrv_sdio aicwf_dbg_level=0 custregd=0 ps_on=0
-	options aic8800_bsp_sdio aic_fw_path=/lib/firmware/aic8800_fw/SDIO/aic8800
+		options aic8800_fdrv_sdio aicwf_dbg_level=0 custregd=0 ps_on=0
+		options aic8800_bsp_sdio aic_fw_path=/lib/firmware/aic8800_fw/SDIO/aic8800
 	EOT
 	# Add needed bluetooth modules
 	cat > "${destination}"/etc/modules-load.d/aic8800-btlpm.conf <<- EOT
-	hidp
-	rfcomm
-	bnep
-	aic8800_btlpm_sdio
+		hidp
+		rfcomm
+		bnep
+		aic8800_btlpm_sdio
 	EOT
 	# Add AIC8800 Bluetooth Service and Script
 	if [[ -d "$SRC/packages/bsp/aic8800" ]]; then

@@ -1,10 +1,12 @@
+# @description Encrypts the root partition with LUKS via `cryptsetup luksFormat`, adds `cryptsetup-initramfs` to the image and requires a separate boot partition. Supports a passphrase, an auto-generated autounlock keyfile, or `dropbear-initramfs` remote SSH unlock (`CRYPTROOT_SSH_UNLOCK`). Auto-enabled when `CRYPTROOT_ENABLE=yes`.
+
 # `cryptroot` / LUKS support is no longer included by default in prepare-host.sh.
 # Enable this extension to include the required dependencies for building.
 # This is automatically enabled if CRYPTROOT_ENABLE is set to yes in main-config.sh.
 
 function add_host_dependencies__add_cryptroot_tooling() {
 	display_alert "Extension: ${EXTENSION}: Adding packages to host dependencies" "cryptsetup openssh-client" "info"
-	EXTRA_BUILD_DEPS="${EXTRA_BUILD_DEPS} cryptsetup openssh-client" # @TODO: convert to array later
+	EXTRA_BUILD_DEPS+=("fs-tools::cryptsetup" "openssh-client")
 }
 
 function extension_prepare_config__prepare_cryptroot() {
@@ -24,9 +26,18 @@ function extension_prepare_config__prepare_cryptroot() {
 function prepare_root_device__250_encrypt_root_device() {
 	# We encrypt the rootdevice (currently a loop device) and return the new mapped rootdevice
 	check_loop_device "$rootdevice"
-	display_alert "Extension: ${EXTENSION}: Encrypting root partition with LUKS..." "cryptsetup luksFormat $rootdevice" ""
-	echo -n $CRYPTROOT_PASSPHRASE | cryptsetup luksFormat $CRYPTROOT_PARAMETERS $rootdevice -
-	echo -n $CRYPTROOT_PASSPHRASE | cryptsetup luksOpen $rootdevice $CRYPTROOT_MAPPER -
+	display_alert "Extension: ${EXTENSION}: Encrypting root partition with LUKS..." "cryptsetup luksFormat $CRYPTROOT_PARAMETERS $rootdevice" ""
+	if [[ $CRYPTROOT_AUTOUNLOCK == "yes" ]]; then
+		display_alert "Extension: ${EXTENSION}: configuring LUKS autounlock" ""
+		declare -g cryptroot_autounlock_key_file=$(mktemp)
+		openssl rand -base64 32 > "$cryptroot_autounlock_key_file"
+		cryptsetup luksFormat $CRYPTROOT_PARAMETERS "$rootdevice" "$cryptroot_autounlock_key_file"
+		cryptsetup luksOpen --key-file "$cryptroot_autounlock_key_file" "$rootdevice" $CRYPTROOT_MAPPER
+	else # CRYPTROOT_PASSPHRASE case
+		display_alert "Extension: ${EXTENSION}: configuring LUKS password" ""
+		echo -n $CRYPTROOT_PASSPHRASE | cryptsetup luksFormat $CRYPTROOT_PARAMETERS $rootdevice -
+		echo -n $CRYPTROOT_PASSPHRASE | cryptsetup luksOpen $rootdevice $CRYPTROOT_MAPPER -
+	fi
 	add_cleanup_handler cleanup_cryptroot
 	display_alert "Extension: ${EXTENSION}: Root partition encryption complete." "" "ext"
 	# TODO: pass /dev/mapper to Docker
@@ -73,7 +84,7 @@ function pre_install_kernel_debs__adjust_dropbear_configuration() {
 	fi
 }
 
-function post_umount_final_image__export_private_key(){
+function post_umount_final_image__export_private_key() {
 	if [[ $CRYPTROOT_SSH_UNLOCK == yes && -f "${DROPBEAR_DIR}"/id_ecdsa ]]; then
 		CRYPTROOT_SSH_UNLOCK_KEY_PATH="${DESTIMG}/${version}.key"
 		# copy dropbear ssh key to image output dir for convenience
@@ -83,11 +94,11 @@ function post_umount_final_image__export_private_key(){
 	fi
 }
 
-function post_umount_final_image__750_cryptroot_cleanup(){
+function post_umount_final_image__750_cryptroot_cleanup() {
 	execute_and_remove_cleanup_handler cleanup_cryptroot
 }
 
-function cleanup_cryptroot(){
+function cleanup_cryptroot() {
 	cryptsetup luksClose "${CRYPTROOT_MAPPER}" 2>&1
 	display_alert "Cryptroot closed ${CRYPTROOT_MAPPER}" "${EXTENSION}" "info"
 }

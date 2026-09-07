@@ -2,10 +2,35 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
+
+# Write a build-time /etc/resolv.conf into the chroot: the primary resolver
+# (${NAMESERVER}) followed by public fallbacks, so a single flaky or unreachable
+# resolver doesn't break apt with "Temporary failure resolving ...". Order is
+# preserved (primary first), so a working primary is always tried before any
+# fallback; the glibc resolver honours at most MAXNS=3 nameservers, so we cap at
+# three. Build-time only — the shipped image's resolv.conf is finalized later
+# (resolvconf / systemd-resolved), so these public resolvers are never shipped.
+function write_build_resolv_conf() {
+	local target="${1}/etc/resolv.conf"
+	local -a ns=()
+	[[ -n "${NAMESERVER}" ]] && ns=("${NAMESERVER}") # omit an empty primary; never emit a blank "nameserver" line
+	local fb
+	for fb in 1.1.1.1 8.8.8.8 9.9.9.9; do
+		[[ "${fb}" == "${NAMESERVER}" ]] && continue
+		ns+=("${fb}")
+	done
+	ns=("${ns[@]:0:3}") # cap at MAXNS=3; extra nameserver lines are ignored by glibc
+	run_host_command_logged rm -fv "${target@Q}"
+	{
+		for fb in "${ns[@]}"; do echo "nameserver ${fb}"; done
+		echo "options timeout:3 attempts:2" # fail over to the next resolver quickly instead of hanging
+	} > "${target}"
+	display_alert "Wrote build-time resolv.conf" "${ns[*]}" "debug"
+}
 
 # called by artifact-rootfs::artifact_rootfs_prepare_version()
 function calculate_rootfs_cache_id() {
@@ -28,7 +53,7 @@ function calculate_rootfs_cache_id() {
 	declare -a extension_hooks_to_hash=("custom_apt_repo")
 	declare -a extension_hooks_hashed=("$(dump_extension_method_sources_functions "${extension_hooks_to_hash[@]}")")
 	declare hash_hooks="undetermined"
-	hash_hooks="$(echo "${extension_hooks_hashed[@]}" | sha256sum | cut -d' ' -f1)"
+	hash_hooks="$(echo "${extension_hooks_hashed[@]}" LANG=${DEST_LANG} | sha256sum | cut -d' ' -f1)"
 	declare hash_hooks_short="${hash_hooks:0:${short_hash_size}}"
 
 	# AGGREGATED_ROOTFS_HASH is produced by aggregation.py
@@ -38,6 +63,43 @@ function calculate_rootfs_cache_id() {
 	[[ ${BUILD_DESKTOP} == yes ]] && cache_type="xfce-desktop"
 	[[ -n ${DESKTOP_ENVIRONMENT} ]] && cache_type="${DESKTOP_ENVIRONMENT}-desktop"
 	[[ ${BUILD_MINIMAL} == yes ]] && cache_type="minimal"
+
+	# Fold DESKTOP_TIER into the cache name for desktop builds.
+	# tier=minimal, tier=mid and tier=full install different
+	# package sets under the same DE, so they can't share a
+	# cache tarball — otherwise the first tier to build wins and
+	# every subsequent tier of that DE silently reuses its rootfs.
+	if [[ ${BUILD_DESKTOP} == yes && -n ${DESKTOP_TIER} ]]; then
+		cache_type="${cache_type}-${DESKTOP_TIER}"
+	fi
+
+	# Fold a short fingerprint of the resolved armbian-configng
+	# desktop tree into the cache name. The desktop package set is
+	# chosen by configng YAMLs at rootfs-create time
+	# (`armbian-config --api module_desktops install mode=build`),
+	# not by the aggregation layer — so packages_hash and
+	# AGGREGATED_ROOTFS_HASH are blind to configng entirely. Without
+	# this, a configng commit that changes which packages a DE
+	# installs leaves the existing rootfs tarball untouched in the
+	# cache and every subsequent build cache-hits the pre-change
+	# version. Scoped to desktop builds: CLI images don't invoke
+	# armbian-config at build time, so configng content doesn't
+	# affect their rootfs.
+	#
+	# CONFIGNG_DESKTOPS_HASH is set by artifact_rootfs_config_dump
+	# above from `git log -1 -- tools/modules/desktops/` in the
+	# cache/sources/armbian-configng clone. 8-char prefix keeps
+	# the filename readable while still giving us ~2^32 of
+	# collision resistance — same truncation style the rest of
+	# this file uses for the hash_hooks/bash_hash components.
+	if [[ ${BUILD_DESKTOP} == yes ]]; then
+		declare _configng_fp="${artifact_input_variables[CONFIGNG_DESKTOPS_HASH]:-}"
+		if [[ -n "${_configng_fp}" &&
+			"${_configng_fp}" != "undetermined" &&
+			"${_configng_fp}" != "unknown" ]]; then
+			cache_type="${cache_type}-${_configng_fp:0:8}"
+		fi
+	fi
 
 	# allow extensions to modify cache_type, since they may have used add_packages_to_rootfs() or remove_packages()
 	cache_type="${cache_type}${EXTRA_ROOTFS_NAME:-""}"
@@ -121,8 +183,7 @@ function extract_rootfs_artifact() {
 
 	wait_for_disk_sync "after restoring rootfs cache"
 
-	run_host_command_logged rm -v "${SDCARD}"/etc/resolv.conf
-	run_host_command_logged echo "nameserver ${NAMESERVER}" ">" "${SDCARD}"/etc/resolv.conf
+	write_build_resolv_conf "${SDCARD}"
 
 	# all sources etc.
 	# armbian repo is NOT yet included here, since we'll be building the image, and don't want the repo interferring.
@@ -132,4 +193,4 @@ function extract_rootfs_artifact() {
 }
 
 # This comment strategically introduced to force a rebuild of all rootfs, as this file's contents are hashed into all rootfs versions.
-# Just a number to force rebuild 005
+# Just a number to force rebuild 007

@@ -1,7 +1,9 @@
 # Rockchip RK3588 octa core 8/16GB RAM SoC 64/128GB eMMC NVMe 1x USB3 1x USB-C 2x 2.5GbE 2x HDMI
 BOARD_NAME="Cyber Aib RK3588"
+BOARD_VENDOR="rockchip"
 BOARDFAMILY="rockchip-rk3588"
 BOARD_MAINTAINER=""
+INTRODUCED="2024"
 BOOTCONFIG="rk3588-cyber-aib_defconfig"
 KERNEL_TARGET="vendor,edge"
 FULL_DESKTOP="yes"

@@ -2,13 +2,13 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (c) 2013-2023 Igor Pecovnik, igor@armbian.com
+# Copyright (c) 2013-2026 Igor Pecovnik, igor@armbian.com
 #
 # This file is a part of the Armbian Build Framework
 # https://github.com/armbian/build/
 
 function build_rootfs_and_image() {
-	display_alert "Checking for rootfs cache" "$(echo "${BRANCH} ${BOARD} ${RELEASE} ${DESKTOP_APPGROUPS_SELECTED} ${DESKTOP_ENVIRONMENT} ${BUILD_MINIMAL}" | tr -s " ")" "info"
+	display_alert "Checking for rootfs cache" "$(echo "${BRANCH} ${BOARD} ${RELEASE} ${DESKTOP_ENVIRONMENT:-cli} ${DESKTOP_TIER:-none} ${BUILD_MINIMAL}" | tr -s " ")" "info"
 
 	# get a basic rootfs, either from cache or from scratch
 	get_or_create_rootfs_cache_chroot_sdcard # only occurrence of this; has its own logging sections
@@ -19,14 +19,8 @@ function build_rootfs_and_image() {
 	# stage: with a basic rootfs available, we mount the chroot and work on it
 	LOG_SECTION="mount_chroot_sdcard" do_with_logging mount_chroot "${SDCARD}"
 
-	call_extension_method "pre_install_distribution_specific" "config_pre_install_distribution_specific" <<- 'PRE_INSTALL_DISTRIBUTION_SPECIFIC'
-		*give config a chance to act before install_distribution_specific*
-		Called after `create_rootfs_cache` (_prepare basic rootfs: unpack cache or create from scratch_) but before `install_distribution_specific` (_install distribution and board specific applications_).
-	PRE_INSTALL_DISTRIBUTION_SPECIFIC
-
 	# stage: install kernel and u-boot packages
 	# install distribution and board specific applications
-
 	LOG_SECTION="install_distribution_specific_${RELEASE}" do_with_logging install_distribution_specific
 	LOG_SECTION="install_distribution_agnostic" do_with_logging install_distribution_agnostic # does apt update
 

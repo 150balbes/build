@@ -1,8 +1,10 @@
 # Rockchip RK3528 quad core 1-8GB SoC GBe eMMC PCIE2.0/USB3
 BOARD_NAME="HinLink H28k"
+BOARD_VENDOR="hinlink"
 BOARDFAMILY="rk35xx"
 BOOTCONFIG="hinlink_rk3528_defconfig"
 BOARD_MAINTAINER="sputnik2019"
+INTRODUCED="2022"
 KERNEL_TARGET="vendor"
 FULL_DESKTOP="yes"
 BOOT_LOGO="desktop"
